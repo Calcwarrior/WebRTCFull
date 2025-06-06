@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Meeting</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            padding: 20px;
+        }
+
+        .setup-screen {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        .setup-screen h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+
+        .meeting-code-display {
+            background: #f8f9fa;
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .input-group {
+            margin: 20px 0;
+        }
+
+        .input-group input {
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 1.1em;
+            width: 300px;
+            margin-right: 10px;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+
+        .meeting-screen {
+            display: none;
+            background: #1a1a1a;
+            border-radius: 20px;
+            padding: 20px;
+            height: 90vh;
+            position: relative;
+        }
+
+        .meeting-header {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .header-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            background: #333;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .header-btn:hover, .header-btn.active {
+            background: #667eea;
+        }
+
+        .video-container {
+            display: flex;
+            gap: 20px;
+            height: calc(100% - 160px);
+            margin-bottom: 20px;
+        }
+
+        .video-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .video-wrapper {
+            flex: 1;
+            background: #000;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .video-label {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+
+        .content-panel {
+            flex: 1;
+            background: #2a2a2a;
+            border-radius: 15px;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .meeting-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: none;
+            color: white;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn.camera {
+            background: #28a745;
+        }
+
+        .control-btn.camera.off {
+            background: #dc3545;
+        }
+
+        .control-btn.mic {
+            background: #28a745;
+        }
+
+        .control-btn.mic.off {
+            background: #dc3545;
+        }
+
+        .control-btn.end {
+            background: #dc3545;
+        }
+
+        .control-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .trivia-game {
+            display: none;
+            color: white;
+        }
+
+        .trivia-question {
+            background: #333;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .trivia-options {
+            display: grid;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .trivia-option {
+            padding: 12px;
+            background: #444;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .trivia-option:hover {
+            background: #555;
+        }
+
+        .trivia-option.correct {
+            background: #28a745;
+        }
+
+        .trivia-option.incorrect {
+            background: #dc3545;
+        }
+
+        .trivia-score {
+            text-align: center;
+            font-size: 1.2em;
+            margin-bottom: 20px;
+        }
+
+        .conversation-prompts {
+            display: none;
+            color: white;
+        }
+
+        .prompt-item {
+            background: #333;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .prompt-item:hover {
+            background: #444;
+        }
+
+        .interactives {
+            display: none;
+            color: white;
+            text-align: center;
+            padding: 50px;
+        }
+
+        .status {
+            color: #ffc107;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Setup Screen -->
+        <div id="setupScreen" class="setup-screen">
+            <h1>WebRTC Meeting</h1>
+            
+            <div id="meetingCodeSection">
+                <h2>Your Meeting Code:</h2>
+                <div class="meeting-code-display" id="meetingCode"></div>
+                <p>Share this code with others to join your meeting</p>
+            </div>
+
+            <div class="input-group">
+                <input type="text" id="codeInput" placeholder="Enter meeting code to join">
+                <button class="btn btn-primary" onclick="joinMeeting()">Join Meeting</button>
+            </div>
+
+            <div class="status" id="status"></div>
+        </div>
+
+        <!-- Meeting Screen -->
+        <div id="meetingScreen" class="meeting-screen">
+            <div class="meeting-header">
+                <button class="header-btn" onclick="showContent('game')">Play Game</button>
+                <button class="header-btn" onclick="showContent('interactives')">Interactives</button>
+                <button class="header-btn" onclick="showContent('conversation')">Conversation</button>
+            </div>
+
+            <div class="video-container">
+                <div class="video-panel">
+                    <div class="video-wrapper">
+                        <video id="localVideo" autoplay muted></video>
+                        <div class="video-label">You</div>
+                    </div>
+                    <div class="video-wrapper">
+                        <video id="remoteVideo" autoplay></video>
+                        <div class="video-label">Participant</div>
+                    </div>
+                </div>
+
+                <div class="content-panel">
+                    <div id="triviaGame" class="trivia-game">
+                        <div class="trivia-score">
+                            <div>Score: Player 1: <span id="score1">0</span> | Player 2: <span id="score2">0</span></div>
+                        </div>
+                        <div id="questionContainer"></div>
+                        <button class="btn btn-primary" onclick="nextQuestion()" id="nextBtn">Start Game</button>
+                    </div>
+
+                    <div id="interactives" class="interactives">
+                        <h2>Interactive Features</h2>
+                        <p>Coming soon! This section will contain interactive activities.</p>
+                    </div>
+
+                    <div id="conversationPrompts" class="conversation-prompts">
+                        <h2>Conversation Starters</h2>
+                        <div id="promptsList"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="meeting-controls">
+                <button class="control-btn camera" id="cameraBtn" onclick="toggleCamera()">📹</button>
+                <button class="control-btn mic" id="micBtn" onclick="toggleMicrophone()">🎤</button>
+                <button class="control-btn end" onclick="endCall()">📞</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let localStream;
+        let remoteStream;
+        let peerConnection;
+        let dataChannel;
+        let meetingCode;
+        let isInitiator = false;
+        let cameraEnabled = true;
+        let micEnabled = true;
+
+        // WebRTC configuration
+        const rtcConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
+
+        // Trivia questions
+        const triviaQuestions = [
+            {
+                question: "What is the capital of France?",
+                options: ["London", "Berlin", "Paris", "Madrid"],
+                correct: 2
+            },
+            {
+                question: "Which planet is known as the Red Planet?",
+                options: ["Venus", "Mars", "Jupiter", "Saturn"],
+                correct: 1
+            },
+            {
+                question: "What is 2 + 2?",
+                options: ["3", "4", "5", "6"],
+                correct: 1
+            },
+            {
+                question: "Who painted the Mona Lisa?",
+                options: ["Van Gogh", "Picasso", "Da Vinci", "Monet"],
+                correct: 2
+            },
+            {
+                question: "What is the largest ocean on Earth?",
+                options: ["Atlantic", "Indian", "Arctic", "Pacific"],
+                correct: 3
+            }
+        ];
+
+        // Conversation prompts
+        const conversationPrompts = [
+            "If you could have dinner with anyone, living or dead, who would it be and why?",
+            "What's the most interesting place you've ever visited?",
+            "If you could have any superpower, what would it be?",
+            "What's a skill you'd love to learn and why?",
+            "What's the best piece of advice you've ever received?",
+            "If you could live in any time period, when would it be?",
+            "What's something that always makes you laugh?",
+            "What's a book or movie that changed your perspective?",
+            "If you could solve one world problem, what would it be?",
+            "What's your idea of a perfect day?"
+        ];
+
+        let currentQuestionIndex = 0;
+        let scores = { player1: 0, player2: 0 };
+        let gameState = { currentQuestion: 0, scores: { player1: 0, player2: 0 } };
+
+        // Initialize the application
+        window.onload = function() {
+            generateMeetingCode();
+            initializeConversationPrompts();
+            setupPeerConnection();
+        };
+
+        function generateMeetingCode() {
+            meetingCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+            document.getElementById('meetingCode').textContent = meetingCode;
+            isInitiator = true;
+            setStatus('Waiting for participant to join...');
+        }
+
+        function setStatus(message) {
+            document.getElementById('status').textContent = message;
+        }
+
+        async function setupPeerConnection() {
+            peerConnection = new RTCPeerConnection(rtcConfig);
+
+            // Set up data channel
+            if (isInitiator) {
+                dataChannel = peerConnection.createDataChannel('meeting-data');
+                setupDataChannel(dataChannel);
+            } else {
+                peerConnection.ondatachannel = (event) => {
+                    dataChannel = event.channel;
+                    setupDataChannel(dataChannel);
+                };
+            }
+
+            // Handle remote stream
+            peerConnection.ontrack = (event) => {
+                const remoteVideo = document.getElementById('remoteVideo');
+                remoteVideo.srcObject = event.streams[0];
+                setStatus('Connected!');
+            };
+
+            // Handle ICE candidates
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    // In a real implementation, you'd send this to a signaling server
+                    console.log('ICE candidate:', event.candidate);
+                }
+            };
+
+            // Get user media
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: true, 
+                    audio: true 
+                });
+                
+                document.getElementById('localVideo').srcObject = localStream;
+                
+                // Add local stream to peer connection
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+
+            } catch (error) {
+                console.error('Error accessing media devices:', error);
+                setStatus('Error accessing camera/microphone');
+            }
+        }
+
+        function setupDataChannel(channel) {
+            channel.onopen = () => {
+                console.log('Data channel opened');
+            };
+
+            channel.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleDataChannelMessage(data);
+            };
+        }
+
+        function handleDataChannelMessage(data) {
+            switch(data.type) {
+                case 'contentChange':
+                    showContent(data.content);
+                    break;
+                case 'gameState':
+                    updateGameState(data.gameState);
+                    break;
+                case 'nextQuestion':
+                    nextQuestion();
+                    break;
+                case 'answer':
+                    handleAnswer(data.answer, data.player);
+                    break;
+                case 'endCall':
+                    endCall();
+                    break;
+            }
+        }
+
+        function sendDataChannelMessage(data) {
+            if (dataChannel && dataChannel.readyState === 'open') {
+                dataChannel.send(JSON.stringify(data));
+            }
+        }
+
+        async function joinMeeting() {
+            const code = document.getElementById('codeInput').value.toUpperCase();
+            if (code) {
+                meetingCode = code;
+                isInitiator = false;
+                setStatus('Joining meeting...');
+                
+                // In a real implementation, you'd connect to the other peer through a signaling server
+                // For this demo, we'll simulate a connection
+                setTimeout(() => {
+                    startMeeting();
+                }, 1000);
+            }
+        }
+
+        function startMeeting() {
+            document.getElementById('setupScreen').style.display = 'none';
+            document.getElementById('meetingScreen').style.display = 'block';
+            showContent('game'); // Default to game view
+        }
+
+        function showContent(contentType) {
+            // Hide all content panels
+            document.getElementById('triviaGame').style.display = 'none';
+            document.getElementById('interactives').style.display = 'none';
+            document.getElementById('conversationPrompts').style.display = 'none';
+
+            // Remove active class from all header buttons
+            document.querySelectorAll('.header-btn').forEach(btn => btn.classList.remove('active'));
+
+            // Show selected content and activate button
+            switch(contentType) {
+                case 'game':
+                    document.getElementById('triviaGame').style.display = 'block';
+                    document.querySelector('.header-btn:nth-child(1)').classList.add('active');
+                    break;
+                case 'interactives':
+                    document.getElementById('interactives').style.display = 'block';
+                    document.querySelector('.header-btn:nth-child(2)').classList.add('active');
+                    break;
+                case 'conversation':
+                    document.getElementById('conversationPrompts').style.display = 'block';
+                    document.querySelector('.header-btn:nth-child(3)').classList.add('active');
+                    break;
+            }
+
+            // Send message to other participant
+            sendDataChannelMessage({ type: 'contentChange', content: contentType });
+        }
+
+        function nextQuestion() {
+            if (currentQuestionIndex < triviaQuestions.length) {
+                displayQuestion(triviaQuestions[currentQuestionIndex]);
+                document.getElementById('nextBtn').textContent = 'Next Question';
+                document.getElementById('nextBtn').style.display = 'none';
+            } else {
+                endGame();
+            }
+            
+            // Sync with other participant
+            sendDataChannelMessage({ type: 'nextQuestion' });
+        }
+
+        function displayQuestion(question) {
+            const container = document.getElementById('questionContainer');
+            container.innerHTML = `
+                <div class="trivia-question">
+                    <h3>Question ${currentQuestionIndex + 1}: ${question.question}</h3>
+                    <div class="trivia-options">
+                        ${question.options.map((option, index) => 
+                            `<button class="trivia-option" onclick="selectAnswer(${index})">${option}</button>`
+                        ).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function selectAnswer(answerIndex) {
+            const question = triviaQuestions[currentQuestionIndex];
+            const options = document.querySelectorAll('.trivia-option');
+            
+            // Disable all options
+            options.forEach(option => option.disabled = true);
+            
+            // Color the options
+            options[question.correct].classList.add('correct');
+            if (answerIndex !== question.correct) {
+                options[answerIndex].classList.add('incorrect');
+            }
+            
+            // Update score
+            if (answerIndex === question.correct) {
+                scores.player1++;
+                document.getElementById('score1').textContent = scores.player1;
+            }
+            
+            // Send answer to other participant
+            sendDataChannelMessage({ 
+                type: 'answer', 
+                answer: answerIndex, 
+                player: 'player1' 
+            });
+            
+            currentQuestionIndex++;
+            
+            setTimeout(() => {
+                if (currentQuestionIndex < triviaQuestions.length) {
+                    document.getElementById('nextBtn').style.display = 'block';
+                } else {
+                    endGame();
+                }
+            }, 2000);
+        }
+
+        function handleAnswer(answerIndex, player) {
+            // Handle answer from remote participant
+            const question = triviaQuestions[currentQuestionIndex - 1];
+            if (answerIndex === question.correct && player === 'player2') {
+                scores.player2++;
+                document.getElementById('score2').textContent = scores.player2;
+            }
+        }
+
+        function endGame() {
+            const container = document.getElementById('questionContainer');
+            const winner = scores.player1 > scores.player2 ? 'You win!' : 
+                          scores.player2 > scores.player1 ? 'Other player wins!' : 
+                          'It\'s a tie!';
+            
+            container.innerHTML = `
+                <div class="trivia-question">
+                    <h2>Game Over!</h2>
+                    <h3>${winner}</h3>
+                    <p>Final Score: You: ${scores.player1} | Other: ${scores.player2}</p>
+                    <button class="btn btn-primary" onclick="resetGame()">Play Again</button>
+                </div>
+            `;
+        }
+
+        function resetGame() {
+            currentQuestionIndex = 0;
+            scores = { player1: 0, player2: 0 };
+            document.getElementById('score1').textContent = '0';
+            document.getElementById('score2').textContent = '0';
+            document.getElementById('nextBtn').textContent = 'Start Game';
+            document.getElementById('nextBtn').style.display = 'block';
+            document.getElementById('questionContainer').innerHTML = '';
+        }
+
+        function initializeConversationPrompts() {
+            const promptsList = document.getElementById('promptsList');
+            conversationPrompts.forEach(prompt => {
+                const promptDiv = document.createElement('div');
+                promptDiv.className = 'prompt-item';
+                promptDiv.textContent = prompt;
+                promptDiv.onclick = () => {
+                    promptDiv.style.background = '#667eea';
+                    setTimeout(() => {
+                        promptDiv.style.background = '#333';
+                    }, 2000);
+                };
+                promptsList.appendChild(promptDiv);
+            });
+        }
+
+        function toggleCamera() {
+            const cameraBtn = document.getElementById('cameraBtn');
+            const videoTrack = localStream.getVideoTracks()[0];
+            
+            if (cameraEnabled) {
+                videoTrack.enabled = false;
+                cameraBtn.classList.add('off');
+                cameraBtn.textContent = '📹';
+            } else {
+                videoTrack.enabled = true;
+                cameraBtn.classList.remove('off');
+                cameraBtn.textContent = '📹';
+            }
+            cameraEnabled = !cameraEnabled;
+        }
+
+        function toggleMicrophone() {
+            const micBtn = document.getElementById('micBtn');
+            const audioTrack = localStream.getAudioTracks()[0];
+            
+            if (micEnabled) {
+                audioTrack.enabled = false;
+                micBtn.classList.add('off');
+                micBtn.textContent = '🎤';
+            } else {
+                audioTrack.enabled = true;
+                micBtn.classList.remove('off');
+                micBtn.textContent = '🎤';
+            }
+            micEnabled = !micEnabled;
+        }
+
+        function endCall() {
+            // Send end call message to other participant
+            sendDataChannelMessage({ type: 'endCall' });
+            
+            // Clean up
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+            
+            if (peerConnection) {
+                peerConnection.close();
+            }
+            
+            // Return to setup screen
+            document.getElementById('meetingScreen').style.display = 'none';
+            document.getElementById('setupScreen').style.display = 'block';
+            
+            // Reset for new meeting
+            generateMeetingCode();
+            setupPeerConnection();
+        }
+
+        // Handle page refresh/close
+        window.addEventListener('beforeunload', () => {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+</body>
+</html>
