@@ -9,6 +9,40 @@ let scores = {}; // Initialize scores as an empty object
 // Get socket from window object
 const socket = window.socket;
 
+// Socket event listeners
+socket.on('game-started', (data) => {
+    console.log('Game started event received:', data);
+    gameActive = true;
+    currentQuestion = data.currentQuestion;
+    scores = data.scores;
+    displayQuestion();
+    updateScores();
+});
+
+socket.on('next-question', (data) => {
+    console.log('Next question event received:', data);
+    currentQuestion = data.currentQuestion;
+    scores = data.scores;
+    selectedAnswer = null;
+    displayQuestion();
+    updateScores();
+});
+
+socket.on('reveal-answers', (data) => {
+    console.log('Reveal answers event received:', data);
+    clearInterval(timerInterval);
+    scores = data.scores;
+    showResults(data.answers);
+    updateScores();
+});
+
+socket.on('game-over', (finalScores) => {
+    console.log('Game over event received with scores:', finalScores);
+    gameActive = false;
+    scores = finalScores;
+    showGameOver();
+});
+
 // Trivia questions
 const triviaQuestions = [
     {
@@ -76,6 +110,19 @@ function showStartGameButton() {
 }
 
 function startGame() {
+    // Reset game state
+    currentQuestion = 0;
+    gameActive = false;
+    selectedAnswer = null;
+    timeLeft = 5;
+    scores = {};
+    
+    // Update UI
+    document.getElementById('yourScore').textContent = '0';
+    document.getElementById('opponentScore').textContent = '0';
+    document.getElementById('questionNum').textContent = '1';
+    
+    // Emit start game event
     socket.emit('start-game');
 }
 
@@ -166,7 +213,7 @@ function showResults(answers) {
                 </div>
             `;
         }
-    }, 3000);
+    }, 1000);
 }
 
 function nextQuestion() {
@@ -191,63 +238,65 @@ function updateScores() {
 }
 
 function showGameOver() {
+    console.log('showGameOver function called');
     const mySocketId = socket.id;
     const myScore = scores[mySocketId] || 0;
     let opponentScore = 0;
+    console.log('we are doing this');
+    console.log('Current scores:', scores);
+    console.log('My socket ID:', mySocketId);
+    console.log('My score:', myScore);
 
     Object.keys(scores).forEach(socketId => {
         if (socketId !== mySocketId) {
             opponentScore = scores[socketId] || 0;
+            console.log('Opponent socket ID:', socketId);
+            console.log('Opponent score:', opponentScore);
         }
     });
 
     let resultText = '';
+    let resultEmoji = '';
+    let resultClass = '';
+
     if (myScore > opponentScore) {
-        resultText = 'You Win! 🎉';
+        resultText = 'You Win!';
+        resultEmoji = '🎉';
+        resultClass = 'win';
     } else if (myScore < opponentScore) {
-        resultText = 'You Lose! 😔';
+        resultText = 'You Lose!';
+        resultEmoji = '😔';
+        resultClass = 'lose';
     } else {
-        resultText = "It's a Tie! 🤝";
+        resultText = "It's a Tie!";
+        resultEmoji = '🤝';
+        resultClass = 'tie';
     }
 
     triviaGameContent.innerHTML = `
-        <div class="game-over">
-            <h3>${resultText}</h3>
-            <p>Final Score: You ${myScore} - ${opponentScore} Opponent</p>
-            <button class="next-btn" onclick="startGame()">Play Again</button>
+        <div class="game-over ${resultClass}">
+            <div class="result-header">
+                <h3>${resultText}</h3>
+                <div class="result-emoji">${resultEmoji}</div>
+            </div>
+            <div class="final-scores">
+                <div class="score-card">
+                    <div class="score-label">Your Score</div>
+                    <div class="score-value">${myScore}</div>
+                </div>
+                <div class="score-divider">vs</div>
+                <div class="score-card">
+                    <div class="score-label">Opponent's Score</div>
+                    <div class="score-value">${opponentScore}</div>
+                </div>
+            </div>
+            <div class="game-over-actions">
+                <button class="next-btn" onclick="startGame()">Play Again</button>
+                <button class="back-btn" onclick="showGameSelection()">Back to Games</button>
+            </div>
         </div>
     `;
 }
-
-// Socket event listeners for game
-socket.on('game-started', (data) => {
-    gameActive = true;
-    currentQuestion = data.currentQuestion;
-    scores = data.scores; // Update scores based on server data
-    displayQuestion();
-    updateScores();
-});
-
-socket.on('next-question', (data) => {
-    currentQuestion = data.currentQuestion;
-    scores = data.scores; // Update scores based on server data
-    selectedAnswer = null;
-    displayQuestion();
-    updateScores();
-});
-
-socket.on('reveal-answers', (data) => {
-    clearInterval(timerInterval);
-    scores = data.scores; // Crucially, update scores directly from the server's authoritative data
-    showResults(data.answers);
-    updateScores();
-});
-
-socket.on('game-over', (finalScores) => {
-    gameActive = false;
-    scores = finalScores; // Update scores based on server data
-    showGameOver();
-});
 
 // Initialize the game sidebar when page loads
 showStartGameButton(); 

@@ -12,6 +12,9 @@ const io = socketIo(server, {
   }
 });
 
+// Add startup log
+console.log('Server starting up...');
+
 // Trivia questions
 const triviaQuestions = [
   {
@@ -159,20 +162,47 @@ io.on('connection', (socket) => {
 
   socket.on('next-question', () => {
     const meetingId = socket.meetingId;
+    console.log('1. Next question handler started. Meeting ID:', meetingId);
+    
     if (meetingId && gameStates[meetingId]) {
-      gameStates[meetingId].currentQuestion++;
-      gameStates[meetingId].answers = {};
+        console.log('2. Meeting and game state found');
+        console.log('3. Current question before increment:', gameStates[meetingId].currentQuestion);
+        
+        try {
+            gameStates[meetingId].currentQuestion++;
+            console.log('4. Question incremented successfully');
+            gameStates[meetingId].answers = {};
+            console.log('5. Answers reset');
 
-      if (gameStates[meetingId].currentQuestion >= 5) {
-        // Game over
-        gameStates[meetingId].gameActive = false;
-        io.to(meetingId).emit('game-over', gameStates[meetingId].scores);
-      } else {
-        io.to(meetingId).emit('next-question', {
-          currentQuestion: gameStates[meetingId].currentQuestion,
-          scores: gameStates[meetingId].scores
+            console.log('6. After increment, current question:', gameStates[meetingId].currentQuestion);
+            console.log('7. Game state:', {
+                currentQuestion: gameStates[meetingId].currentQuestion,
+                gameActive: gameStates[meetingId].gameActive,
+                scores: gameStates[meetingId].scores
+            });
+            console.log(gameStates[meetingId].currentQuestion);
+            if (gameStates[meetingId].currentQuestion >= 4) {
+                console.log('8. Game over condition met');
+                gameStates[meetingId].gameActive = false;
+                console.log('9. Game state deactivated');
+                console.log('10. Emitting game-over event to room:', meetingId);
+                io.to(meetingId).emit('game-over', gameStates[meetingId].scores);
+            } else {
+                console.log('8. Emitting next-question event');
+                io.to(meetingId).emit('next-question', {
+                    currentQuestion: gameStates[meetingId].currentQuestion,
+                    scores: gameStates[meetingId].scores
+                });
+            }
+        } catch (error) {
+            console.error('Error in next-question handler:', error);
+        }
+    } else {
+        console.log('2. Meeting or game state not found:', {
+            meetingId,
+            hasGameState: !!gameStates[meetingId],
+            gameStates: Object.keys(gameStates)
         });
-      }
     }
   });
 
@@ -207,27 +237,44 @@ io.on('connection', (socket) => {
 });
 
 function revealAnswers(meetingId) {
-  const gameState = gameStates[meetingId];
-  const currentQuestion = gameState.currentQuestion;
+    console.log('1. Reveal answers started for meeting:', meetingId);
+    const gameState = gameStates[meetingId];
+    const currentQuestion = gameState.currentQuestion;
+    console.log('2. Current question:', currentQuestion);
 
-  // Get the correct answer for the current question
-  const correctAnswer = triviaQuestions[currentQuestion].correct;
+    // Get the correct answer for the current question
+    const correctAnswer = triviaQuestions[currentQuestion].correct;
+    console.log('3. Correct answer:', correctAnswer);
 
-  // Update scores based on answers
-  Object.entries(gameState.answers).forEach(([participantId, answer]) => {
-    if (answer === correctAnswer) {
-      gameState.scores[participantId] = (gameState.scores[participantId] || 0) + 1;
+    // Update scores based on answers
+    Object.entries(gameState.answers).forEach(([participantId, answer]) => {
+        console.log('4. Processing answer for participant:', participantId, 'Answer:', answer);
+        if (answer === correctAnswer) {
+            gameState.scores[participantId] = (gameState.scores[participantId] || 0) + 1;
+            console.log('5. Score updated for participant:', participantId, 'New score:', gameState.scores[participantId]);
+        }
+    });
+
+    console.log('6. Final scores before emit:', gameState.scores);
+    console.log('7. Current question before check:', currentQuestion);
+
+    // Check if this was the last question
+    if (currentQuestion >= 4) {  // Changed from 5 to 4 since we're 0-based
+        console.log('8. Last question completed, ending game');
+        gameState.gameActive = false;
+        console.log('9. Emitting game-over event');
+        io.to(meetingId).emit('game-over', gameState.scores);
+    } else {
+        console.log('8. Emitting reveal-answers event');
+        // Emit the updated scores and answers to all participants
+        io.to(meetingId).emit('reveal-answers', {
+            answers: gameState.answers,
+            scores: gameState.scores
+        });
     }
-  });
-
-  // Emit the updated scores and answers to all participants
-  io.to(meetingId).emit('reveal-answers', {
-    answers: gameState.answers,
-    scores: gameState.scores
-  });
 }
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });
