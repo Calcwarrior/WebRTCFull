@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
+const fetch = require('node-fetch'); // Add node-fetch for server-side API calls
 
 const app = express();
 const server = http.createServer(app);
@@ -15,34 +16,45 @@ const io = socketIo(server, {
 // Add startup log
 console.log('Server starting up...');
 
-// Trivia questions
-const triviaQuestions = [
-  {
-    question: "What is the capital of France?",
-    options: ["London", "Berlin", "Paris", "Madrid"],
-    correct: 2
-  },
-  {
-    question: "Which planet is known as the Red Planet?",
-    options: ["Venus", "Mars", "Jupiter", "Saturn"],
-    correct: 1
-  },
-  {
-    question: "What is the largest mammal in the world?",
-    options: ["African Elephant", "Blue Whale", "Giraffe", "Hippopotamus"],
-    correct: 1
-  },
-  {
-    question: "Who painted the Mona Lisa?",
-    options: ["Vincent van Gogh", "Pablo Picasso", "Leonardo da Vinci", "Michelangelo"],
-    correct: 2
-  },
-  {
-    question: "What is the chemical symbol for gold?",
-    options: ["Ag", "Fe", "Au", "Cu"],
-    correct: 2
-  }
-];
+// Helper function to decode Base64 strings
+function decodeBase64(str) {
+    return decodeURIComponent(Buffer.from(str, 'base64').toString('binary').split('').map(function (c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+}
+
+// Function to fetch trivia questions from Open Trivia DB for the server
+async function fetchTriviaQuestionsServer() {
+    try {
+        const response = await fetch('https://opentdb.com/api.php?amount=5&encode=base64');
+        const data = await response.json();
+
+        if (data.response_code === 0) {
+            const questions = data.results.map(q => {
+                const options = [...q.incorrect_answers.map(decodeBase64), decodeBase64(q.correct_answer)];
+                // Shuffle options (optional on server, but good for consistency)
+                for (let i = options.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [options[i], options[j]] = [options[j], options[i]];
+                }
+                const correctIndex = options.indexOf(decodeBase64(q.correct_answer));
+                return {
+                    question: decodeBase64(q.question),
+                    options: options,
+                    correct: correctIndex
+                };
+            });
+            console.log('Fetched trivia questions on server:', questions);
+            return questions;
+        } else {
+            console.error('Error fetching trivia questions on server, response code:', data.response_code);
+            return null;
+        }
+    } catch (error) {
+        console.error('Error fetching trivia questions on server:', error);
+        return null;
+    }
+}
 
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public')));
@@ -125,22 +137,28 @@ io.on('connection', (socket) => {
   });
 
   // Game events
-  socket.on('start-game', () => {
+  socket.on('start-game', async () => {
     const meetingId = socket.meetingId;
     if (meetingId && meetings[meetingId]) {
-      gameStates[meetingId].gameActive = true;
-      gameStates[meetingId].currentQuestion = 0;
-      gameStates[meetingId].answers = {};
+      const fetchedQuestions = await fetchTriviaQuestionsServer();
+      if (fetchedQuestions) {
+        gameStates[meetingId].triviaQuestions = fetchedQuestions;
+        gameStates[meetingId].gameActive = true;
+        gameStates[meetingId].currentQuestion = 0;
+        gameStates[meetingId].answers = {};
 
-      // Reset scores
-      meetings[meetingId].participants.forEach(participantId => {
-        gameStates[meetingId].scores[participantId] = 0;
-      });
+        // Reset scores
+        meetings[meetingId].participants.forEach(participantId => {
+          gameStates[meetingId].scores[participantId] = 0;
+        });
 
-      io.to(meetingId).emit('game-started', {
-        currentQuestion: 0,
-        scores: gameStates[meetingId].scores
-      });
+        io.to(meetingId).emit('game-started', {
+          currentQuestion: 0,
+          scores: gameStates[meetingId].scores
+        });
+      } else {
+        console.error('Failed to fetch trivia questions for meeting:', meetingId);
+      }
     }
   });
 
@@ -242,8 +260,8 @@ function revealAnswers(meetingId) {
     const currentQuestion = gameState.currentQuestion;
     console.log('2. Current question:', currentQuestion);
 
-    // Get the correct answer for the current question
-    const correctAnswer = triviaQuestions[currentQuestion].correct;
+    // Get the correct answer for the current question from the fetched questions
+    const correctAnswer = gameState.triviaQuestions[currentQuestion].correct;
     console.log('3. Correct answer:', correctAnswer);
 
     // Update scores based on answers

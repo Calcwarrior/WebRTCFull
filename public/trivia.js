@@ -5,6 +5,7 @@ let selectedAnswer = null;
 let timeLeft = 5;
 let timerInterval;
 let scores = {}; // Initialize scores as an empty object
+let triviaQuestions = []; // Will store fetched questions
 
 // Get socket from window object
 const socket = window.socket;
@@ -43,34 +44,48 @@ socket.on('game-over', (finalScores) => {
     showGameOver();
 });
 
-// Trivia questions
-const triviaQuestions = [
-    {
-        question: "What is the capital of France?",
-        options: ["London", "Berlin", "Paris", "Madrid"],
-        correct: 2
-    },
-    {
-        question: "Which planet is known as the Red Planet?",
-        options: ["Venus", "Mars", "Jupiter", "Saturn"],
-        correct: 1
-    },
-    {
-        question: "What is the largest mammal in the world?",
-        options: ["African Elephant", "Blue Whale", "Giraffe", "Hippopotamus"],
-        correct: 1
-    },
-    {
-        question: "Who painted the Mona Lisa?",
-        options: ["Vincent van Gogh", "Pablo Picasso", "Leonardo da Vinci", "Michelangelo"],
-        correct: 2
-    },
-    {
-        question: "What is the chemical symbol for gold?",
-        options: ["Ag", "Fe", "Au", "Cu"],
-        correct: 2
+// Helper function to decode Base64 strings
+function decodeBase64(str) {
+    return decodeURIComponent(atob(str).split('').map(function (c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+}
+
+// Function to fetch trivia questions from Open Trivia DB
+async function fetchTriviaQuestions() {
+    try {
+        const response = await fetch('https://opentdb.com/api.php?amount=5&encode=base64');
+        const data = await response.json();
+
+        if (data.response_code === 0) {
+            triviaQuestions = data.results.map(q => {
+                const options = [...q.incorrect_answers.map(decodeBase64), decodeBase64(q.correct_answer)];
+                // Shuffle options to ensure correct answer isn't always in the same spot
+                for (let i = options.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [options[i], options[j]] = [options[j], options[i]];
+                }
+                const correctIndex = options.indexOf(decodeBase64(q.correct_answer));
+                return {
+                    question: decodeBase64(q.question),
+                    options: options,
+                    correct: correctIndex
+                };
+            });
+            console.log('Fetched trivia questions:', triviaQuestions);
+            return true;
+        } else {
+            console.error('Error fetching trivia questions, response code:', data.response_code);
+            // Handle different response codes as needed (e.g., token empty, no results)
+            alert('Could not fetch trivia questions. Please try again later.');
+            return false;
+        }
+    } catch (error) {
+        console.error('Error fetching trivia questions:', error);
+        alert('An error occurred while fetching trivia questions.');
+        return false;
     }
-];
+}
 
 // Game functions
 function showTriviaGame() {
@@ -112,7 +127,7 @@ function showStartGameButton() {
     `;
 }
 
-function startGame() {
+async function startGame() {
     // Reset game state
     currentQuestion = 0;
     gameActive = false;
@@ -126,8 +141,11 @@ function startGame() {
     document.getElementById('questionNum').textContent = '1';
     document.getElementById('timer').style.display = 'block'; // Show the timer
     
-    // Emit start game event
-    socket.emit('start-game');
+    const fetched = await fetchTriviaQuestions();
+    if (fetched) {
+        // Emit start game event only if questions are fetched successfully
+        socket.emit('start-game');
+    }
 }
 
 function displayQuestion() {
