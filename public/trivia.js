@@ -45,6 +45,15 @@ socket.on('game-over', (finalScores) => {
     showGameOver();
 });
 
+// Add new socket event for UI synchronization
+socket.on('show-game-sidebar', () => {
+    showGameSettings();
+});
+
+socket.on('show-game-selection', () => {
+    showGameSelection();
+});
+
 // Helper function to decode Base64 strings
 function decodeBase64(str) {
     return decodeURIComponent(atob(str).split('').map(function (c) {
@@ -109,41 +118,6 @@ async function fetchTriviaQuestions() {
 }
 
 // Game functions
-function showTriviaGame() {
-    hideSidebars();
-    gameSettingsSidebar.classList.add('active');
-}
-
-function showGameSelection() {
-    // Reset game state
-    currentQuestion = 0;
-    gameActive = false;
-    selectedAnswer = null;
-    timeLeft = 5;
-    scores = {};
-    
-    // Update UI
-    document.getElementById('yourScore').textContent = '0';
-    document.getElementById('opponentScore').textContent = '0';
-    document.getElementById('questionNum').textContent = '1';
-    
-    // Show game selection screen
-    document.getElementById('triviaGameSidebar').classList.remove('active');
-    document.getElementById('gameSidebar').classList.add('active');
-}
-
-function showStartGameButton() {
-    // Timer is hidden by default via CSS; no need to hide here
-    
-    triviaGameContent.innerHTML = `
-        <div style="text-align: center; padding: 40px;">
-            <h4>Ready to play trivia?</h4>
-            <p style="margin: 15px 0; color: #666;">Test your knowledge with 5 questions!</p>
-            <button class="next-btn" onclick="startGame()">Start Game</button>
-        </div>
-    `;
-}
-
 async function startGame() {
     // Clear previous game content
     triviaGameContent.innerHTML = '';
@@ -154,13 +128,17 @@ async function startGame() {
     selectedAnswer = null;
     timeLeft = 5;
     scores = {};
-    
+
     // Update UI
     document.getElementById('yourScore').textContent = '0';
     document.getElementById('opponentScore').textContent = '0';
     document.getElementById('questionNum').textContent = '1';
     document.getElementById('totalQuestions').textContent = document.getElementById('numQuestions').value;
-    document.getElementById('timer').style.display = 'block'; // Show the timer
+    
+    // Show timer and emit event to other users
+    const timer = document.getElementById('timer');
+    timer.style.display = 'block';
+    socket.emit('show-timer');
 
     // Fetch questions based on settings
     const fetched = await fetchTriviaQuestions();
@@ -168,10 +146,6 @@ async function startGame() {
         console.log('Client: Emitting start-game event with questions.');
         // Emit start game event along with fetched questions
         socket.emit('start-game', { triviaQuestions: triviaQuestions });
-        
-        // Show the trivia game sidebar after starting the game
-        hideSidebars();
-        triviaGameSidebar.classList.add('active');
     }
 }
 
@@ -350,6 +324,14 @@ function showGameOver() {
         </div>
     `;
 }
+
+// Add socket listener for timer display
+socket.on('show-timer', () => {
+    const timer = document.getElementById('timer');
+    if (timer) {
+        timer.style.display = 'block';
+    }
+});
 
 // Initialize the game sidebar when page loads
 showStartGameButton(); 

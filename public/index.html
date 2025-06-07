@@ -541,7 +541,7 @@
 
                 <div class="sidebar" id="gameSidebar">
                     <h3>Game Selection</h3>
-                    <button class="next-btn" onclick="showTriviaGame()">Trivia Game</button>
+                    <button class="next-btn" onclick="navigateToGameSettings()">Trivia Game</button>
                 </div>
 
                 <div class="sidebar" id="gameSettingsSidebar">
@@ -549,19 +549,19 @@
                     <div class="game-widget">
                         <div class="input-group">
                             <label for="numQuestions">Number of Questions (1-50):</label>
-                            <input type="number" id="numQuestions" value="5" min="1" max="50">
+                            <input type="number" id="numQuestions" value="5" min="1" max="50" onchange="updateNumQuestions(this.value)">
                         </div>
                         <div class="input-group" style="margin-top: 20px;">
                             <label>Difficulty:</label>
                             <div style="display: flex; gap: 15px; margin-top: 10px;">
-                                <label><input type="radio" name="difficulty" value="any" checked> Any</label>
-                                <label><input type="radio" name="difficulty" value="easy"> Easy</label>
-                                <label><input type="radio" name="difficulty" value="medium"> Medium</label>
-                                <label><input type="radio" name="difficulty" value="hard"> Hard</label>
+                                <label><input type="radio" name="difficulty" value="any" checked onchange="updateDifficulty(this.value)"> Any</label>
+                                <label><input type="radio" name="difficulty" value="easy" onchange="updateDifficulty(this.value)"> Easy</label>
+                                <label><input type="radio" name="difficulty" value="medium" onchange="updateDifficulty(this.value)"> Medium</label>
+                                <label><input type="radio" name="difficulty" value="hard" onchange="updateDifficulty(this.value)"> Hard</label>
                             </div>
                         </div>
-                        <button class="next-btn" onclick="startGame()" style="margin-top: 30px;">Start Game</button>
-                        <button class="back-btn" onclick="showGameSelection()" style="margin-top: 15px;">Back to Games</button>
+                        <button class="next-btn" onclick="navigateToTriviaGame()" style="margin-top: 30px;">Start Game</button>
+                        <button class="back-btn" onclick="navigateToGameSelection()" style="margin-top: 15px;">Back to Games</button>
                     </div>
                 </div>
 
@@ -809,14 +809,32 @@
         // Sidebar navigation
         gameBtn.addEventListener('click', () => {
             if (gameSidebar.classList.contains('active')) {
+                // Emit event to hide game sidebar for all users
+                window.socket.emit('hide-game-sidebar');
                 hideSidebars();
                 gameBtn.classList.remove('active');
             } else {
+                // Emit event to show game sidebar for all users
+                window.socket.emit('show-game-sidebar');
                 showSidebar('game');
                 gameBtn.classList.add('active');
                 interactiveBtn.classList.remove('active');
                 conversationBtn.classList.remove('active');
             }
+        });
+
+        // Add socket event listener for game sidebar synchronization
+        window.socket.on('show-game-sidebar', () => {
+            showSidebar('game');
+            gameBtn.classList.add('active');
+            interactiveBtn.classList.remove('active');
+            conversationBtn.classList.remove('active');
+        });
+
+        // Add socket event listener for hiding game sidebar
+        window.socket.on('hide-game-sidebar', () => {
+            hideSidebars();
+            gameBtn.classList.remove('active');
         });
 
         interactiveBtn.addEventListener('click', () => {
@@ -859,10 +877,107 @@
             gameSidebar.classList.add('active');
         }
 
-        // Update the showTriviaGame function to show settings first
-        function showTriviaGame() {
-            showGameSettings();
+        // Navigation functions
+        function navigateToGameSettings() {
+            window.socket.emit('show-trivia-game');
+            hideSidebars();
+            gameSettingsSidebar.classList.add('active');
         }
+
+        function navigateToGameSelection() {
+            window.socket.emit('show-game-selection');
+            hideSidebars();
+            gameSidebar.classList.add('active');
+        }
+
+        function navigateToTriviaGame() {
+            window.socket.emit('show-trivia-game-screen');
+            hideSidebars();
+            triviaGameSidebar.classList.add('active');
+            // Call the game start function from trivia.js
+            if (typeof startGame === 'function') {
+                startGame();
+            }
+        }
+
+        // Socket event listeners for navigation
+        window.socket.on('show-trivia-game', () => {
+            hideSidebars();
+            gameSettingsSidebar.classList.add('active');
+        });
+
+        window.socket.on('show-game-selection', () => {
+            hideSidebars();
+            gameSidebar.classList.add('active');
+        });
+
+        window.socket.on('show-trivia-game-screen', () => {
+            hideSidebars();
+            triviaGameSidebar.classList.add('active');
+        });
+
+        // Game settings synchronization
+        function updateNumQuestions(value) {
+            console.log('Emitting num questions update:', value);
+            window.socket.emit('update-num-questions', { value: value });
+        }
+
+        function updateDifficulty(value) {
+            console.log('Emitting difficulty update:', value);
+            window.socket.emit('update-difficulty', { value: value });
+        }
+
+        // Socket event listeners for game settings
+        window.socket.on('update-num-questions', (data) => {
+            console.log('Received num questions update:', data);
+            const input = document.getElementById('numQuestions');
+            const totalQuestionsSpan = document.getElementById('totalQuestions');
+            if (input) {
+                input.value = data.value;
+                console.log('Updated num questions input to:', data.value);
+            }
+            if (totalQuestionsSpan) {
+                totalQuestionsSpan.textContent = data.value;
+                console.log('Updated total questions span to:', data.value);
+            }
+        });
+
+        window.socket.on('update-difficulty', (data) => {
+            console.log('Received difficulty update:', data);
+            const radio = document.querySelector(`input[name="difficulty"][value="${data.value}"]`);
+            if (radio) {
+                radio.checked = true;
+                console.log('Updated difficulty radio to:', data.value);
+            }
+        });
+
+        // Initialize socket event listeners when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Setting up socket event listeners');
+            // Re-attach all socket event listeners
+            window.socket.on('update-num-questions', (data) => {
+                console.log('Received num questions update:', data);
+                const input = document.getElementById('numQuestions');
+                const totalQuestionsSpan = document.getElementById('totalQuestions');
+                if (input) {
+                    input.value = data.value;
+                    console.log('Updated num questions input to:', data.value);
+                }
+                if (totalQuestionsSpan) {
+                    totalQuestionsSpan.textContent = data.value;
+                    console.log('Updated total questions span to:', data.value);
+                }
+            });
+
+            window.socket.on('update-difficulty', (data) => {
+                console.log('Received difficulty update:', data);
+                const radio = document.querySelector(`input[name="difficulty"][value="${data.value}"]`);
+                if (radio) {
+                    radio.checked = true;
+                    console.log('Updated difficulty radio to:', data.value);
+                }
+            });
+        });
     </script>
 </body>
 </html>

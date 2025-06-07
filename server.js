@@ -196,6 +196,70 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Add UI synchronization events
+  socket.on('show-game-sidebar', () => {
+    const meetingId = socket.meetingId;
+    if (meetingId) {
+      io.to(meetingId).emit('show-game-sidebar');
+    }
+  });
+
+  socket.on('hide-game-sidebar', () => {
+    const meetingId = socket.meetingId;
+    if (meetingId) {
+      io.to(meetingId).emit('hide-game-sidebar');
+    }
+  });
+
+  socket.on('show-trivia-game', () => {
+    const meetingId = socket.meetingId;
+    if (meetingId) {
+      io.to(meetingId).emit('show-trivia-game');
+    }
+  });
+
+  socket.on('show-game-settings', () => {
+    const meetingId = socket.meetingId;
+    if (meetingId) {
+      io.to(meetingId).emit('show-game-settings');
+    }
+  });
+
+  socket.on('show-trivia-game-screen', () => {
+    const meetingId = socket.meetingId;
+    if (meetingId) {
+      io.to(meetingId).emit('show-trivia-game-screen');
+    }
+  });
+
+  socket.on('update-num-questions', (data) => {
+    const meetingId = socket.meetingId;
+    if (meetingId) {
+      io.to(meetingId).emit('update-num-questions', data);
+    }
+  });
+
+  socket.on('update-difficulty', (data) => {
+    const meetingId = socket.meetingId;
+    if (meetingId) {
+      io.to(meetingId).emit('update-difficulty', data);
+    }
+  });
+
+  socket.on('show-timer', () => {
+    const meetingId = socket.meetingId;
+    if (meetingId) {
+      io.to(meetingId).emit('show-timer');
+    }
+  });
+
+  socket.on('show-game-selection', () => {
+    const meetingId = socket.meetingId;
+    if (meetingId) {
+      io.to(meetingId).emit('show-game-selection');
+    }
+  });
+
   // Handle disconnection
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
