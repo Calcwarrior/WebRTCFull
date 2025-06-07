@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WebRTC Meeting App</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
     <script>
         // Make socket globally available
@@ -18,7 +19,7 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Montserrat', sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
@@ -784,10 +785,15 @@
 
         // Sidebar navigation
         gameBtn.addEventListener('click', () => {
-            showSidebar('game');
-            gameBtn.classList.add('active');
-            interactiveBtn.classList.remove('active');
-            conversationBtn.classList.remove('active');
+            if (gameSidebar.classList.contains('active')) {
+                hideSidebars();
+                gameBtn.classList.remove('active');
+            } else {
+                showSidebar('game');
+                gameBtn.classList.add('active');
+                interactiveBtn.classList.remove('active');
+                conversationBtn.classList.remove('active');
+            }
         });
 
         interactiveBtn.addEventListener('click', () => {
