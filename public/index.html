@@ -540,8 +540,8 @@
         let remoteStream;
         let peerConnection;
         let roomId;
-        let cameraEnabled = true;
-        let micEnabled = true;
+        let cameraEnabled = false;
+        let micEnabled = false;
         let remoteSocketId;
 
         // WebRTC configuration
@@ -559,6 +559,16 @@
                     audio: true
                 });
                 localVideo.srcObject = localStream;
+                
+                // Set initial button states
+                cameraBtn.textContent = '📹 Camera Off';
+                micBtn.textContent = '🎤 Mic Off';
+                
+                // Initially disable camera and mic
+                const videoTrack = localStream.getVideoTracks()[0];
+                const audioTrack = localStream.getAudioTracks()[0];
+                if (videoTrack) videoTrack.enabled = false;
+                if (audioTrack) audioTrack.enabled = false;
             } catch (error) {
                 console.error('Error accessing media devices:', error);
             }
@@ -654,8 +664,8 @@
             if (videoTrack) {
                 videoTrack.enabled = cameraEnabled;
             }
-            cameraBtn.textContent = cameraEnabled ? 'Camera Off' : 'Camera On';
-            cameraBtn.classList.toggle('active', !cameraEnabled);
+            cameraBtn.textContent = cameraEnabled ? '📹 Camera On' : '📹 Camera Off';
+            cameraBtn.classList.toggle('active', cameraEnabled);
         });
 
         micBtn.addEventListener('click', () => {
@@ -664,8 +674,8 @@
             if (audioTrack) {
                 audioTrack.enabled = micEnabled;
             }
-            micBtn.textContent = micEnabled ? 'Mic Off' : 'Mic On';
-            micBtn.classList.toggle('active', !micEnabled);
+            micBtn.textContent = micEnabled ? '🎤 Mic On' : '🎤 Mic Off';
+            micBtn.classList.toggle('active', micEnabled);
         });
 
         endCallBtn.addEventListener('click', () => {
