@@ -3,7 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC Meeting</title>
+    <title>WebRTC Meeting App</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Make socket globally available
+        window.socket = io();
+    </script>
+    <script src="/trivia.js"></script>
     <style>
         * {
             margin: 0;
@@ -18,736 +24,656 @@
             display: flex;
             align-items: center;
             justify-content: center;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 1200px;
-            padding: 20px;
-        }
-
-        .setup-screen {
+        }.container {
             background: white;
-            border-radius: 20px;
-            padding: 40px;
-            text-align: center;
+            border-radius: 15px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-        }
-
-        .setup-screen h1 {
+            overflow: hidden;
+            width: 90%;
+            max-width: 1200px;
+            min-height: 80vh;
+        }.join-screen {
+            padding: 60px;
+            text-align: center;
+        }.join-screen h1 {
             color: #333;
             margin-bottom: 30px;
             font-size: 2.5em;
-        }
-
-        .meeting-code-display {
-            background: #f8f9fa;
-            border: 2px dashed #667eea;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 20px 0;
-            font-size: 1.5em;
-            font-weight: bold;
-            color: #667eea;
-        }
-
-        .input-group {
-            margin: 20px 0;
-        }
-
-        .input-group input {
-            padding: 15px;
-            border: 2px solid #ddd;
-            border-radius: 10px;
-            font-size: 1.1em;
-            width: 300px;
-            margin-right: 10px;
-        }
-
-        .btn {
-            padding: 15px 30px;
-            border: none;
-            border-radius: 10px;
-            font-size: 1.1em;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #5a6fd8;
-            transform: translateY(-2px);
-        }
-
-        .meeting-screen {
-            display: none;
-            background: #1a1a1a;
-            border-radius: 20px;
-            padding: 20px;
-            height: 90vh;
-            position: relative;
-        }
-
-        .meeting-header {
+        }.join-form {
             display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .header-btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            background: #333;
-            color: white;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .header-btn:hover, .header-btn.active {
-            background: #667eea;
-        }
-
-        .video-container {
-            display: flex;
+            flex-direction: column;
             gap: 20px;
-            height: calc(100% - 160px);
-            margin-bottom: 20px;
-        }
-
-        .video-panel {
+            max-width: 400px;
+            margin: 0 auto;
+        }.input-group {
+            position: relative;
+        }.input-group input {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }.input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }.join-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }.join-btn:hover {
+            transform: translateY(-2px);
+        }.meeting-screen {
+            display: none;
+            height: 100vh;
+            flex-direction: column;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        }.meeting-header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            gap: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }.header-btn {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+        }.header-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-2px);
+        }.header-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }.meeting-content {
+            flex: 1; /* Allow meeting content to take available space */
+            display: flex;
+            gap: 30px;
+            padding: 30px;
+            min-height: 0; /* Important for flex items in a column */
+        }.video-section {
             flex: 1;
             display: flex;
             flex-direction: column;
             gap: 20px;
-        }
-
-        .video-wrapper {
+            min-height: 0;
+        }.videos-grid {
             flex: 1;
-            background: #000;
-            border-radius: 15px;
-            overflow: hidden;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            min-height: 0;
+        }.video-container {
             position: relative;
-        }
-
-        video {
+            background: linear-gradient(135deg, #232526 0%, #414345 100%);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            min-height: auto; /* Adjusted to auto for flexibility */
+        }.video-container video {
             width: 100%;
             height: 100%;
             object-fit: cover;
-        }
-
-        .video-label {
+        }.video-label {
             position: absolute;
-            bottom: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.7);
+            bottom: 15px;
+            left: 15px;
+            background: rgba(0,0,0,0.8);
             color: white;
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 0.9em;
-        }
-
-        .content-panel {
-            flex: 1;
-            background: #2a2a2a;
-            border-radius: 15px;
-            padding: 20px;
-            overflow-y: auto;
-        }
-
-        .meeting-controls {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+        }.controls {
             display: flex;
             justify-content: center;
-            gap: 15px;
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-        }
-
-        .control-btn {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            border: none;
+            gap: 20px;
+            padding: 25px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border-radius: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }.control-btn {
+            background: rgba(255, 255, 255, 0.15);
             color: white;
-            font-size: 1.2em;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            padding: 15px 25px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            min-width: 120px;
+        }.control-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }.control-btn.active {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            border-color: #ff6b6b;
+            box-shadow: 0 8px 25px rgba(255, 107, 107, 0.3);
+        }.control-btn#endCallBtn {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            border-color: #ff6b6b;
+        }.control-btn#endCallBtn:hover {
+            background: linear-gradient(135deg, #ff5252 0%, #d63031 100%);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(255, 82, 82, 0.4);
+        }.sidebar {
+            width: 420px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 25px;
+            display: none;
+            /* Added flex properties for better layout management */
+            flex-direction: column; /* Stack children vertically */
+            flex-shrink: 0; /* Prevents sidebar from shrinking if not intended */
+            min-height: 0; /* Crucial for flex items within a flex container */
+        }.sidebar.active {
+            display: flex; /* Changed from block to flex when active */
+        }.sidebar h3 {
+            margin-bottom: 25px;
+            color: white;
+            font-size: 1.4em;
+            font-weight: 600;
+        }.game-widget {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+            /* Added flex properties for internal layout */
+            display: flex;
+            flex-direction: column;
+            flex: 1; /* Allows it to grow and shrink to fit sidebar */
+            overflow: hidden; /* Hides any content that overflows its bounds */
+        }.game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }.scores {
+            display: flex;
+            gap: 25px;
+            font-weight: 600;
+        }.question {
+            background: linear-gradient(135deg, #f8f9ff 0%, #e8f2ff 100%);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(102, 126, 234, 0.1);
+        }.question h4 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 1.1em;
+            line-height: 1.4;
+        }.options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }.option {
+            background: white;
+            border: 2px solid #e8f2ff;
+            padding: 15px 20px;
+            border-radius: 10px;
             cursor: pointer;
             transition: all 0.3s ease;
-        }
-
-        .control-btn.camera {
-            background: #28a745;
-        }
-
-        .control-btn.camera.off {
-            background: #dc3545;
-        }
-
-        .control-btn.mic {
-            background: #28a745;
-        }
-
-        .control-btn.mic.off {
-            background: #dc3545;
-        }
-
-        .control-btn.end {
-            background: #dc3545;
-        }
-
-        .control-btn:hover {
-            transform: scale(1.1);
-        }
-
-        .trivia-game {
-            display: none;
+            font-weight: 500;
+            position: relative; /* Added to position badges */
+        }.option:hover {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #f8f9ff 0%, #e8f2ff 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.1);
+        }.option.selected {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-        }
-
-        .trivia-question {
-            background: #333;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-
-        .trivia-options {
-            display: grid;
-            gap: 10px;
-            margin-top: 15px;
-        }
-
-        .trivia-option {
-            padding: 12px;
-            background: #444;
-            border: none;
-            border-radius: 8px;
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }.option.correct {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
             color: white;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-
-        .trivia-option:hover {
-            background: #555;
-        }
-
-        .trivia-option.correct {
-            background: #28a745;
-        }
-
-        .trivia-option.incorrect {
-            background: #dc3545;
-        }
-
-        .trivia-score {
+            border-color: #28a745;
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        }.option.incorrect {
+            background: linear-gradient(135deg, #dc3545 0%, #fd79a8 100%);
+            color: white;
+            border-color: #dc3545;
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.3);
+        }.answer-badge {
+            background: rgba(255, 255, 255, 0.8);
+            color: #333;
+            padding: 4px 8px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 500;
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            backdrop-filter: blur(10px);
+        }.timer {
             text-align: center;
-            font-size: 1.2em;
-            margin-bottom: 20px;
-        }
-
-        .conversation-prompts {
-            display: none;
-            color: white;
-        }
-
-        .prompt-item {
-            background: #333;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 15px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-
-        .prompt-item:hover {
-            background: #444;
-        }
-
-        .interactives {
-            display: none;
-            color: white;
-            text-align: center;
-            padding: 50px;
-        }
-
-        .status {
-            color: #ffc107;
-            margin: 10px 0;
+            font-size: 28px;
             font-weight: bold;
+            color: #e74c3c;
+            margin: 15px 0;
+            text-shadow: 0 2px 4px rgba(231, 76, 60, 0.3);
+        }
+
+        #gameContent {
+            flex: 1; /* Allows game content to take remaining vertical space */
+            overflow-y: auto; /* Adds scrollbar if content overflows */
+            padding-right: 10px; /* Provides space for scrollbar */
+        }.game-over {
+            text-align: center;
+            padding: 30px;
+        }.game-over h3 {
+            color: #28a745;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }.conversation-prompts {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }.prompt-item {
+            background: linear-gradient(135deg, #f8f9ff 0%, #e8f2ff 100%);
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }.prompt-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+            background: linear-gradient(135deg, #f0f4ff 0%, #e0ecff 100%);
+        }.prompt-item h5 {
+            color: #333;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }.prompt-item p {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.4;
+        }.next-btn {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            margin-top: 20px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }.next-btn:hover {
+            background: linear-gradient(135deg, #218838 0%, #17a2b8 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        }.back-btn {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            margin-top: 20px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }.back-btn:hover {
+            background: linear-gradient(135deg, #ff5252 0%, #d63031 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 82, 82, 0.4);
+        }
+
+        @media (max-width: 768px) {.meeting-content {
+                flex-direction: column;
+            }.sidebar {
+                width: 100%;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Setup Screen -->
-        <div id="setupScreen" class="setup-screen">
+        <div class="join-screen" id="joinScreen">
             <h1>WebRTC Meeting</h1>
-            
-            <div id="meetingCodeSection">
-                <h2>Your Meeting Code:</h2>
-                <div class="meeting-code-display" id="meetingCode"></div>
-                <p>Share this code with others to join your meeting</p>
-            </div>
-
+            <form class="join-form" id="joinForm">
             <div class="input-group">
-                <input type="text" id="codeInput" placeholder="Enter meeting code to join">
-                <button class="btn btn-primary" onclick="joinMeeting()">Join Meeting</button>
+                    <input type="text" id="meetingId" placeholder="Enter Meeting ID" required>
             </div>
-
-            <div class="status" id="status"></div>
+                <button type="submit" class="join-btn">Join Meeting</button>
+            </form>
         </div>
 
-        <!-- Meeting Screen -->
-        <div id="meetingScreen" class="meeting-screen">
+        <div class="meeting-screen" id="meetingScreen">
             <div class="meeting-header">
-                <button class="header-btn" onclick="showContent('game')">Play Game</button>
-                <button class="header-btn" onclick="showContent('interactives')">Interactives</button>
-                <button class="header-btn" onclick="showContent('conversation')">Conversation</button>
+                <button class="header-btn" id="gameBtn">Play Game</button>
+                <button class="header-btn" id="interactiveBtn">Interactives</button>
+                <button class="header-btn" id="conversationBtn">Conversation</button>
             </div>
 
+            <div class="meeting-content">
+                <div class="video-section">
+                    <div class="videos-grid">
             <div class="video-container">
-                <div class="video-panel">
-                    <div class="video-wrapper">
                         <video id="localVideo" autoplay muted></video>
                         <div class="video-label">You</div>
-                    </div>
-                    <div class="video-wrapper">
-                        <video id="remoteVideo" autoplay></video>
-                        <div class="video-label">Participant</div>
-                    </div>
-                </div>
-
-                <div class="content-panel">
-                    <div id="triviaGame" class="trivia-game">
-                        <div class="trivia-score">
-                            <div>Score: Player 1: <span id="score1">0</span> | Player 2: <span id="score2">0</span></div>
                         </div>
-                        <div id="questionContainer"></div>
-                        <button class="btn btn-primary" onclick="nextQuestion()" id="nextBtn">Start Game</button>
+                        <div class="video-container">
+                            <video id="remoteVideo" autoplay></video>
+                            <div class="video-label">Remote User</div>
+                        </div>
                     </div>
-
-                    <div id="interactives" class="interactives">
-                        <h2>Interactive Features</h2>
-                        <p>Coming soon! This section will contain interactive activities.</p>
-                    </div>
-
-                    <div id="conversationPrompts" class="conversation-prompts">
-                        <h2>Conversation Starters</h2>
-                        <div id="promptsList"></div>
+                    <div class="controls">
+                        <button class="control-btn" id="cameraBtn">📹 Camera Off</button>
+                        <button class="control-btn" id="micBtn">🎤 Mic Off</button>
+                        <button class="control-btn" id="endCallBtn">📞 End Call</button>
                     </div>
                 </div>
-            </div>
 
-            <div class="meeting-controls">
-                <button class="control-btn camera" id="cameraBtn" onclick="toggleCamera()">📹</button>
-                <button class="control-btn mic" id="micBtn" onclick="toggleMicrophone()">🎤</button>
-                <button class="control-btn end" onclick="endCall()">📞</button>
+                <div class="sidebar" id="gameSidebar">
+                    <h3>Game Selection</h3>
+                    <div class="game-widget" id="gameWidget">
+                        <div class="game-header">
+                            <h4>Select a Game</h4>
+                        </div>
+                        <div id="gameSelectionContent">
+                            <button class="next-btn" onclick="showTriviaGame()">Trivia Game</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sidebar" id="triviaGameSidebar">
+                    <h3>Trivia Game</h3>
+                    <div class="game-widget" id="triviaGameWidget">
+                        <div class="game-header">
+                            <h4>Question <span id="questionNum">1</span> of 5</h4>
+                            <div class="scores">
+                                <span>You: <span id="yourScore">0</span></span>
+                                <span>Opponent: <span id="opponentScore">0</span></span>
+                            </div>
+                        </div>
+                        <div class="timer" id="timer">5</div>
+                        <div id="gameContent">
+                            <div id="triviaGameContent"></div>
+                            <button class="back-btn" onclick="showGameSelection()">Back</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sidebar" id="conversationSidebar">
+                    <h3>Conversation Starters</h3>
+                    <div class="conversation-prompts">
+                        <div class="prompt-item">
+                            <h5>Getting to Know Each Other</h5>
+                            <p>What's the most interesting place you've ever visited?</p>
+                        </div>
+                        <div class="prompt-item">
+                            <h5>Dreams and Aspirations</h5>
+                            <p>If you could have any superpower, what would it be and why?</p>
+                        </div>
+                        <div class="prompt-item">
+                            <h5>Personal Preferences</h5>
+                            <p>What's your favorite way to spend a weekend?</p>
+                        </div>
+                        <div class="prompt-item">
+                            <h5>Life Experiences</h5>
+                            <p>What's the best piece of advice you've ever received?</p>
+                        </div>
+                        <div class="prompt-item">
+                            <h5>Hypothetical Scenarios</h5>
+                            <p>If you could have dinner with anyone, dead or alive, who would it be?</p>
+                        </div>
+                        <div class="prompt-item">
+                            <h5>Creative Thinking</h5>
+                            <p>What's something you've always wanted to learn but never had the time for?</p>
+                        </div>
+                        <div class="prompt-item">
+                            <h5>Fun Questions</h5>
+                            <p>What's the weirdest food combination you actually enjoy?</p>
+                        </div>
+                        <div class="prompt-item">
+                            <h5>Deep Conversations</h5>
+                            <p>What's something that always makes you laugh, no matter how many times you see it?</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Global variables
+        // Socket.IO connection
+        // const socket = io();  // Remove this line since we defined it globally
+
+        // DOM elements
+        const joinScreen = document.getElementById('joinScreen');
+        const meetingScreen = document.getElementById('meetingScreen');
+        const meetingId = document.getElementById('meetingId');
+        const joinForm = document.getElementById('joinForm');
+        const localVideo = document.getElementById('localVideo');
+        const remoteVideo = document.getElementById('remoteVideo');
+
+        // Sidebar elements
+        const gameBtn = document.getElementById('gameBtn');
+        const interactiveBtn = document.getElementById('interactiveBtn');
+        const conversationBtn = document.getElementById('conversationBtn');
+        const gameSidebar = document.getElementById('gameSidebar');
+        const triviaGameSidebar = document.getElementById('triviaGameSidebar');
+        const conversationSidebar = document.getElementById('conversationSidebar');
+
+        // Control buttons
+        const cameraBtn = document.getElementById('cameraBtn');
+        const micBtn = document.getElementById('micBtn');
+        const endCallBtn = document.getElementById('endCallBtn');
+
+        // Game elements
+        const gameWidget = document.getElementById('gameWidget');
+        const triviaGameWidget = document.getElementById('triviaGameWidget');
+        const questionNum = document.getElementById('questionNum');
+        const yourScore = document.getElementById('yourScore');
+        const opponentScore = document.getElementById('opponentScore');
+        const timer = document.getElementById('timer');
+        const triviaGameContent = document.getElementById('triviaGameContent');
+
+        // WebRTC variables
         let localStream;
         let remoteStream;
         let peerConnection;
-        let dataChannel;
-        let meetingCode;
-        let isInitiator = false;
+        let roomId;
         let cameraEnabled = true;
         let micEnabled = true;
+        let remoteSocketId;
 
         // WebRTC configuration
-        const rtcConfig = {
+        const configuration = {
             iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
+                { urls: 'stun:stun.l.google.com:19302' }
             ]
         };
 
-        // Trivia questions
-        const triviaQuestions = [
-            {
-                question: "What is the capital of France?",
-                options: ["London", "Berlin", "Paris", "Madrid"],
-                correct: 2
-            },
-            {
-                question: "Which planet is known as the Red Planet?",
-                options: ["Venus", "Mars", "Jupiter", "Saturn"],
-                correct: 1
-            },
-            {
-                question: "What is 2 + 2?",
-                options: ["3", "4", "5", "6"],
-                correct: 1
-            },
-            {
-                question: "Who painted the Mona Lisa?",
-                options: ["Van Gogh", "Picasso", "Da Vinci", "Monet"],
-                correct: 2
-            },
-            {
-                question: "What is the largest ocean on Earth?",
-                options: ["Atlantic", "Indian", "Arctic", "Pacific"],
-                correct: 3
-            }
-        ];
-
-        // Conversation prompts
-        const conversationPrompts = [
-            "If you could have dinner with anyone, living or dead, who would it be and why?",
-            "What's the most interesting place you've ever visited?",
-            "If you could have any superpower, what would it be?",
-            "What's a skill you'd love to learn and why?",
-            "What's the best piece of advice you've ever received?",
-            "If you could live in any time period, when would it be?",
-            "What's something that always makes you laugh?",
-            "What's a book or movie that changed your perspective?",
-            "If you could solve one world problem, what would it be?",
-            "What's your idea of a perfect day?"
-        ];
-
-        let currentQuestionIndex = 0;
-        let scores = { player1: 0, player2: 0 };
-        let gameState = { currentQuestion: 0, scores: { player1: 0, player2: 0 } };
-
-        // Initialize the application
-        window.onload = function() {
-            generateMeetingCode();
-            initializeConversationPrompts();
-            setupPeerConnection();
-        };
-
-        function generateMeetingCode() {
-            meetingCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-            document.getElementById('meetingCode').textContent = meetingCode;
-            isInitiator = true;
-            setStatus('Waiting for participant to join...');
-        }
-
-        function setStatus(message) {
-            document.getElementById('status').textContent = message;
-        }
-
-        async function setupPeerConnection() {
-            peerConnection = new RTCPeerConnection(rtcConfig);
-
-            // Set up data channel
-            if (isInitiator) {
-                dataChannel = peerConnection.createDataChannel('meeting-data');
-                setupDataChannel(dataChannel);
-            } else {
-                peerConnection.ondatachannel = (event) => {
-                    dataChannel = event.channel;
-                    setupDataChannel(dataChannel);
-                };
-            }
-
-            // Handle remote stream
-            peerConnection.ontrack = (event) => {
-                const remoteVideo = document.getElementById('remoteVideo');
-                remoteVideo.srcObject = event.streams[0];
-                setStatus('Connected!');
-            };
-
-            // Handle ICE candidates
-            peerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    // In a real implementation, you'd send this to a signaling server
-                    console.log('ICE candidate:', event.candidate);
-                }
-            };
-
-            // Get user media
+        // Initialize
+        async function init() {
             try {
-                localStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: true, 
-                    audio: true 
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true
                 });
-                
-                document.getElementById('localVideo').srcObject = localStream;
-                
-                // Add local stream to peer connection
-                localStream.getTracks().forEach(track => {
-                    peerConnection.addTrack(track, localStream);
-                });
-
+                localVideo.srcObject = localStream;
             } catch (error) {
                 console.error('Error accessing media devices:', error);
-                setStatus('Error accessing camera/microphone');
             }
         }
 
-        function setupDataChannel(channel) {
-            channel.onopen = () => {
-                console.log('Data channel opened');
-            };
+        // Join meeting
+        joinForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            roomId = meetingId.value.trim();
+            if (roomId) {
+                joinScreen.style.display = 'none';
+                meetingScreen.style.display = 'flex';
 
-            channel.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                handleDataChannelMessage(data);
-            };
-        }
-
-        function handleDataChannelMessage(data) {
-            switch(data.type) {
-                case 'contentChange':
-                    showContent(data.content);
-                    break;
-                case 'gameState':
-                    updateGameState(data.gameState);
-                    break;
-                case 'nextQuestion':
-                    nextQuestion();
-                    break;
-                case 'answer':
-                    handleAnswer(data.answer, data.player);
-                    break;
-                case 'endCall':
-                    endCall();
-                    break;
-            }
-        }
-
-        function sendDataChannelMessage(data) {
-            if (dataChannel && dataChannel.readyState === 'open') {
-                dataChannel.send(JSON.stringify(data));
-            }
-        }
-
-        async function joinMeeting() {
-            const code = document.getElementById('codeInput').value.toUpperCase();
-            if (code) {
-                meetingCode = code;
-                isInitiator = false;
-                setStatus('Joining meeting...');
-                
-                // In a real implementation, you'd connect to the other peer through a signaling server
-                // For this demo, we'll simulate a connection
-                setTimeout(() => {
-                    startMeeting();
-                }, 1000);
-            }
-        }
-
-        function startMeeting() {
-            document.getElementById('setupScreen').style.display = 'none';
-            document.getElementById('meetingScreen').style.display = 'block';
-            showContent('game'); // Default to game view
-        }
-
-        function showContent(contentType) {
-            // Hide all content panels
-            document.getElementById('triviaGame').style.display = 'none';
-            document.getElementById('interactives').style.display = 'none';
-            document.getElementById('conversationPrompts').style.display = 'none';
-
-            // Remove active class from all header buttons
-            document.querySelectorAll('.header-btn').forEach(btn => btn.classList.remove('active'));
-
-            // Show selected content and activate button
-            switch(contentType) {
-                case 'game':
-                    document.getElementById('triviaGame').style.display = 'block';
-                    document.querySelector('.header-btn:nth-child(1)').classList.add('active');
-                    break;
-                case 'interactives':
-                    document.getElementById('interactives').style.display = 'block';
-                    document.querySelector('.header-btn:nth-child(2)').classList.add('active');
-                    break;
-                case 'conversation':
-                    document.getElementById('conversationPrompts').style.display = 'block';
-                    document.querySelector('.header-btn:nth-child(3)').classList.add('active');
-                    break;
-            }
-
-            // Send message to other participant
-            sendDataChannelMessage({ type: 'contentChange', content: contentType });
-        }
-
-        function nextQuestion() {
-            if (currentQuestionIndex < triviaQuestions.length) {
-                displayQuestion(triviaQuestions[currentQuestionIndex]);
-                document.getElementById('nextBtn').textContent = 'Next Question';
-                document.getElementById('nextBtn').style.display = 'none';
-            } else {
-                endGame();
-            }
-            
-            // Sync with other participant
-            sendDataChannelMessage({ type: 'nextQuestion' });
-        }
-
-        function displayQuestion(question) {
-            const container = document.getElementById('questionContainer');
-            container.innerHTML = `
-                <div class="trivia-question">
-                    <h3>Question ${currentQuestionIndex + 1}: ${question.question}</h3>
-                    <div class="trivia-options">
-                        ${question.options.map((option, index) => 
-                            `<button class="trivia-option" onclick="selectAnswer(${index})">${option}</button>`
-                        ).join('')}
-                    </div>
-                </div>
-            `;
-        }
-
-        function selectAnswer(answerIndex) {
-            const question = triviaQuestions[currentQuestionIndex];
-            const options = document.querySelectorAll('.trivia-option');
-            
-            // Disable all options
-            options.forEach(option => option.disabled = true);
-            
-            // Color the options
-            options[question.correct].classList.add('correct');
-            if (answerIndex !== question.correct) {
-                options[answerIndex].classList.add('incorrect');
-            }
-            
-            // Update score
-            if (answerIndex === question.correct) {
-                scores.player1++;
-                document.getElementById('score1').textContent = scores.player1;
-            }
-            
-            // Send answer to other participant
-            sendDataChannelMessage({ 
-                type: 'answer', 
-                answer: answerIndex, 
-                player: 'player1' 
-            });
-            
-            currentQuestionIndex++;
-            
-            setTimeout(() => {
-                if (currentQuestionIndex < triviaQuestions.length) {
-                    document.getElementById('nextBtn').style.display = 'block';
-                } else {
-                    endGame();
-                }
-            }, 2000);
-        }
-
-        function handleAnswer(answerIndex, player) {
-            // Handle answer from remote participant
-            const question = triviaQuestions[currentQuestionIndex - 1];
-            if (answerIndex === question.correct && player === 'player2') {
-                scores.player2++;
-                document.getElementById('score2').textContent = scores.player2;
-            }
-        }
-
-        function endGame() {
-            const container = document.getElementById('questionContainer');
-            const winner = scores.player1 > scores.player2 ? 'You win!' : 
-                          scores.player2 > scores.player1 ? 'Other player wins!' : 
-                          'It\'s a tie!';
-            
-            container.innerHTML = `
-                <div class="trivia-question">
-                    <h2>Game Over!</h2>
-                    <h3>${winner}</h3>
-                    <p>Final Score: You: ${scores.player1} | Other: ${scores.player2}</p>
-                    <button class="btn btn-primary" onclick="resetGame()">Play Again</button>
-                </div>
-            `;
-        }
-
-        function resetGame() {
-            currentQuestionIndex = 0;
-            scores = { player1: 0, player2: 0 };
-            document.getElementById('score1').textContent = '0';
-            document.getElementById('score2').textContent = '0';
-            document.getElementById('nextBtn').textContent = 'Start Game';
-            document.getElementById('nextBtn').style.display = 'block';
-            document.getElementById('questionContainer').innerHTML = '';
-        }
-
-        function initializeConversationPrompts() {
-            const promptsList = document.getElementById('promptsList');
-            conversationPrompts.forEach(prompt => {
-                const promptDiv = document.createElement('div');
-                promptDiv.className = 'prompt-item';
-                promptDiv.textContent = prompt;
-                promptDiv.onclick = () => {
-                    promptDiv.style.background = '#667eea';
-                    setTimeout(() => {
-                        promptDiv.style.background = '#333';
-                    }, 2000);
-                };
-                promptsList.appendChild(promptDiv);
-            });
-        }
-
-        function toggleCamera() {
-            const cameraBtn = document.getElementById('cameraBtn');
-            const videoTrack = localStream.getVideoTracks()[0];
-            
-            if (cameraEnabled) {
-                videoTrack.enabled = false;
-                cameraBtn.classList.add('off');
-                cameraBtn.textContent = '📹';
-            } else {
-                videoTrack.enabled = true;
-                cameraBtn.classList.remove('off');
-                cameraBtn.textContent = '📹';
-            }
-            cameraEnabled = !cameraEnabled;
-        }
-
-        function toggleMicrophone() {
-            const micBtn = document.getElementById('micBtn');
-            const audioTrack = localStream.getAudioTracks()[0];
-            
-            if (micEnabled) {
-                audioTrack.enabled = false;
-                micBtn.classList.add('off');
-                micBtn.textContent = '🎤';
-            } else {
-                audioTrack.enabled = true;
-                micBtn.classList.remove('off');
-                micBtn.textContent = '🎤';
-            }
-            micEnabled = !micEnabled;
-        }
-
-        function endCall() {
-            // Send end call message to other participant
-            sendDataChannelMessage({ type: 'endCall' });
-            
-            // Clean up
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-            }
-            
-            if (peerConnection) {
-                peerConnection.close();
-            }
-            
-            // Return to setup screen
-            document.getElementById('meetingScreen').style.display = 'none';
-            document.getElementById('setupScreen').style.display = 'block';
-            
-            // Reset for new meeting
-            generateMeetingCode();
-            setupPeerConnection();
-        }
-
-        // Handle page refresh/close
-        window.addEventListener('beforeunload', () => {
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
+                await init();
+                window.socket.emit('join-meeting', roomId);
             }
         });
+
+        // Socket event listeners
+        window.socket.on('participants', (participants) => {
+            participants.forEach(participantId => {
+                createPeerConnection(participantId);
+                createOffer(participantId);
+            });
+        });
+
+        window.socket.on('user-joined', (socketId) => {
+            remoteSocketId = socketId;
+            console.log('User joined:', socketId);
+        });
+
+        window.socket.on('user-left', (socketId) => {
+            console.log('User left:', socketId);
+            if (remoteVideo.srcObject) {
+                remoteVideo.srcObject = null;
+            }
+        });
+
+        window.socket.on('offer', async (data) => {
+            remoteSocketId = data.sender;
+            createPeerConnection(data.sender);
+            await peerConnection.setRemoteDescription(data.offer);
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            window.socket.emit('answer', { answer, target: data.sender });
+        });
+
+        window.socket.on('answer', async (data) => {
+            await peerConnection.setRemoteDescription(data.answer);
+        });
+
+        window.socket.on('ice-candidate', async (data) => {
+            await peerConnection.addIceCandidate(data.candidate);
+        });
+
+        window.socket.on('call-ended', () => {
+            window.location.reload();
+        });
+
+        // WebRTC functions
+        function createPeerConnection(socketId) {
+            peerConnection = new RTCPeerConnection(configuration);
+
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+
+            peerConnection.ontrack = (event) => {
+                remoteStream = event.streams[0];
+                remoteVideo.srcObject = remoteStream;
+            };
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    window.socket.emit('ice-candidate', {
+                        candidate: event.candidate,
+                        target: socketId
+                    });
+                }
+            };
+        }
+
+        async function createOffer(socketId) {
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            window.socket.emit('offer', { offer, target: socketId });
+        }
+
+        // Control button handlers
+        cameraBtn.addEventListener('click', () => {
+            cameraEnabled = !cameraEnabled;
+            const videoTrack = localStream.getVideoTracks()[0];
+            if (videoTrack) {
+                videoTrack.enabled = cameraEnabled;
+            }
+            cameraBtn.textContent = cameraEnabled ? 'Camera Off' : 'Camera On';
+            cameraBtn.classList.toggle('active', !cameraEnabled);
+        });
+
+        micBtn.addEventListener('click', () => {
+            micEnabled = !micEnabled;
+            const audioTrack = localStream.getAudioTracks()[0];
+            if (audioTrack) {
+                audioTrack.enabled = micEnabled;
+            }
+            micBtn.textContent = micEnabled ? 'Mic Off' : 'Mic On';
+            micBtn.classList.toggle('active', !micEnabled);
+        });
+
+        endCallBtn.addEventListener('click', () => {
+            window.socket.emit('end-call');
+        });
+
+        // Sidebar navigation
+        gameBtn.addEventListener('click', () => {
+            showSidebar('game');
+            gameBtn.classList.add('active');
+            interactiveBtn.classList.remove('active');
+            conversationBtn.classList.remove('active');
+        });
+
+        interactiveBtn.addEventListener('click', () => {
+            hideSidebars();
+            interactiveBtn.classList.add('active');
+            gameBtn.classList.remove('active');
+            conversationBtn.classList.remove('active');
+        });
+
+        conversationBtn.addEventListener('click', () => {
+            showSidebar('conversation');
+            conversationBtn.classList.add('active');
+            gameBtn.classList.remove('active');
+            interactiveBtn.classList.remove('active');
+        });
+
+        function showSidebar(type) {
+            hideSidebars();
+            if (type === 'game') {
+                gameSidebar.classList.add('active');
+            } else if (type === 'conversation') {
+                conversationSidebar.classList.add('active');
+            }
+        }
+
+        function hideSidebars() {
+            gameSidebar.classList.remove('active');
+            triviaGameSidebar.classList.remove('active');
+            conversationSidebar.classList.remove('active');
+        }
     </script>
 </body>
 </html>

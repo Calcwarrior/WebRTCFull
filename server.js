@@ -1,4 +1,3 @@
-// server.js - Node.js WebRTC Signaling Server
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -7,200 +6,228 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-    }
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
 });
 
-// Serve static files (your HTML file)
-app.use(express.static('public'));
+// Trivia questions
+const triviaQuestions = [
+  {
+    question: "What is the capital of France?",
+    options: ["London", "Berlin", "Paris", "Madrid"],
+    correct: 2
+  },
+  {
+    question: "Which planet is known as the Red Planet?",
+    options: ["Venus", "Mars", "Jupiter", "Saturn"],
+    correct: 1
+  },
+  {
+    question: "What is the largest mammal in the world?",
+    options: ["African Elephant", "Blue Whale", "Giraffe", "Hippopotamus"],
+    correct: 1
+  },
+  {
+    question: "Who painted the Mona Lisa?",
+    options: ["Vincent van Gogh", "Pablo Picasso", "Leonardo da Vinci", "Michelangelo"],
+    correct: 2
+  },
+  {
+    question: "What is the chemical symbol for gold?",
+    options: ["Ag", "Fe", "Au", "Cu"],
+    correct: 2
+  }
+];
 
-// Store active rooms and their participants
-const rooms = new Map();
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Store meeting rooms and their participants
+const meetings = {};
+const gameStates = {};
 
 io.on('connection', (socket) => {
-    console.log('User connected:', socket.id);
+  console.log('User connected:', socket.id);
 
-    // Handle creating a new room
-    socket.on('create-room', (roomCode) => {
-        console.log(`Creating room: ${roomCode}`);
-        
-        if (rooms.has(roomCode)) {
-            socket.emit('room-error', { message: 'Room already exists' });
-            return;
-        }
+  // Join a meeting room
+  socket.on('join-meeting', (meetingId) => {
+    console.log(`User ${socket.id} joining meeting ${meetingId}`);
 
-        // Create new room
-        rooms.set(roomCode, {
-            creator: socket.id,
-            participants: [socket.id],
-            createdAt: Date.now()
+    // Leave any previous room
+    const previousRooms = Array.from(socket.rooms).filter(room => room !== socket.id);
+    previousRooms.forEach(room => socket.leave(room));
+
+    // Join the new meeting room
+    socket.join(meetingId);
+    socket.meetingId = meetingId;
+
+    // Initialize meeting if it doesn't exist
+    if (!meetings[meetingId]) {
+      meetings[meetingId] = {
+        participants: [],
+        gameActive: false
+      };
+      gameStates[meetingId] = {
+        scores: {},
+        currentQuestion: 0,
+        answers: {},
+        timer: null,
+        gameActive: false
+      };
+    }
+
+    // Add participant if not already in the meeting
+    if (!meetings[meetingId].participants.includes(socket.id)) {
+      meetings[meetingId].participants.push(socket.id);
+      gameStates[meetingId].scores[socket.id] = 0;
+    }
+
+    // Notify other participants
+    socket.to(meetingId).emit('user-joined', socket.id);
+
+    // Send current participants to the new user
+    socket.emit('participants', meetings[meetingId].participants.filter(id => id !== socket.id));
+
+    // Send current game state if game is active
+    if (gameStates[meetingId].gameActive) {
+      socket.emit('game-started', {
+        currentQuestion: gameStates[meetingId].currentQuestion,
+        scores: gameStates[meetingId].scores
+      });
+    }
+  });
+
+  // WebRTC signaling
+  socket.on('offer', (data) => {
+    socket.to(data.target).emit('offer', {
+      offer: data.offer,
+      sender: socket.id
+    });
+  });
+
+  socket.on('answer', (data) => {
+    socket.to(data.target).emit('answer', {
+      answer: data.answer,
+      sender: socket.id
+    });
+  });
+
+  socket.on('ice-candidate', (data) => {
+    socket.to(data.target).emit('ice-candidate', {
+      candidate: data.candidate,
+      sender: socket.id
+    });
+  });
+
+  // Game events
+  socket.on('start-game', () => {
+    const meetingId = socket.meetingId;
+    if (meetingId && meetings[meetingId]) {
+      gameStates[meetingId].gameActive = true;
+      gameStates[meetingId].currentQuestion = 0;
+      gameStates[meetingId].answers = {};
+
+      // Reset scores
+      meetings[meetingId].participants.forEach(participantId => {
+        gameStates[meetingId].scores[participantId] = 0;
+      });
+
+      io.to(meetingId).emit('game-started', {
+        currentQuestion: 0,
+        scores: gameStates[meetingId].scores
+      });
+    }
+  });
+
+  socket.on('submit-answer', (data) => {
+    const meetingId = socket.meetingId;
+    if (meetingId && gameStates[meetingId]) {
+      gameStates[meetingId].answers[socket.id] = data.answer;
+
+      // Check if all participants have answered
+      const totalParticipants = meetings[meetingId].participants.length;
+      const answeredParticipants = Object.keys(gameStates[meetingId].answers).length;
+
+      if (answeredParticipants === totalParticipants) {
+        // All answered, reveal results immediately
+        revealAnswers(meetingId);
+      }
+    }
+  });
+
+  socket.on('next-question', () => {
+    const meetingId = socket.meetingId;
+    if (meetingId && gameStates[meetingId]) {
+      gameStates[meetingId].currentQuestion++;
+      gameStates[meetingId].answers = {};
+
+      if (gameStates[meetingId].currentQuestion >= 5) {
+        // Game over
+        gameStates[meetingId].gameActive = false;
+        io.to(meetingId).emit('game-over', gameStates[meetingId].scores);
+      } else {
+        io.to(meetingId).emit('next-question', {
+          currentQuestion: gameStates[meetingId].currentQuestion,
+          scores: gameStates[meetingId].scores
         });
+      }
+    }
+  });
 
-        socket.join(roomCode);
-        socket.roomCode = roomCode;
-        socket.emit('room-created', { roomCode });
-        
-        console.log(`Room ${roomCode} created by ${socket.id}`);
-    });
+  // End call
+  socket.on('end-call', () => {
+    const meetingId = socket.meetingId;
+    if (meetingId) {
+      io.to(meetingId).emit('call-ended');
+    }
+  });
 
-    // Handle joining an existing room
-    socket.on('join-room', (roomCode) => {
-        console.log(`${socket.id} attempting to join room: ${roomCode}`);
-        
-        const room = rooms.get(roomCode);
-        
-        if (!room) {
-            socket.emit('room-error', { message: 'Room not found' });
-            return;
-        }
+  // Handle disconnection
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id);
 
-        if (room.participants.length >= 2) {
-            socket.emit('room-error', { message: 'Room is full' });
-            return;
-        }
+    const meetingId = socket.meetingId;
+    if (meetingId && meetings[meetingId]) {
+      // Remove participant
+      meetings[meetingId].participants = meetings[meetingId].participants.filter(id => id !== socket.id);
+      delete gameStates[meetingId].scores[socket.id];
 
-        // Add participant to room
-        room.participants.push(socket.id);
-        socket.join(roomCode);
-        socket.roomCode = roomCode;
+      // Notify other participants
+      socket.to(meetingId).emit('user-left', socket.id);
 
-        // Notify both participants that room is ready
-        socket.emit('room-joined', { roomCode });
-        socket.to(roomCode).emit('participant-joined', { participantId: socket.id });
-        
-        console.log(`${socket.id} joined room ${roomCode}`);
-        
-        // If room now has 2 participants, start the call
-        if (room.participants.length === 2) {
-            io.to(roomCode).emit('room-ready');
-        }
-    });
-
-    // Handle WebRTC offer
-    socket.on('offer', (data) => {
-        console.log('Relaying offer from', socket.id);
-        socket.to(socket.roomCode).emit('offer', {
-            offer: data.offer,
-            from: socket.id
-        });
-    });
-
-    // Handle WebRTC answer
-    socket.on('answer', (data) => {
-        console.log('Relaying answer from', socket.id);
-        socket.to(socket.roomCode).emit('answer', {
-            answer: data.answer,
-            from: socket.id
-        });
-    });
-
-    // Handle ICE candidates
-    socket.on('ice-candidate', (data) => {
-        console.log('Relaying ICE candidate from', socket.id);
-        socket.to(socket.roomCode).emit('ice-candidate', {
-            candidate: data.candidate,
-            from: socket.id
-        });
-    });
-
-    // Handle data channel messages (for game sync, etc.)
-    socket.on('data-message', (data) => {
-        socket.to(socket.roomCode).emit('data-message', {
-            data: data.data,
-            from: socket.id
-        });
-    });
-
-    // Handle call end
-    socket.on('end-call', () => {
-        console.log('Call ended by', socket.id);
-        if (socket.roomCode) {
-            socket.to(socket.roomCode).emit('call-ended');
-            
-            // Clean up room
-            const room = rooms.get(socket.roomCode);
-            if (room) {
-                room.participants = room.participants.filter(id => id !== socket.id);
-                if (room.participants.length === 0) {
-                    rooms.delete(socket.roomCode);
-                    console.log(`Room ${socket.roomCode} deleted`);
-                }
-            }
-        }
-    });
-
-    // Handle disconnect
-    socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.id);
-        
-        if (socket.roomCode) {
-            const room = rooms.get(socket.roomCode);
-            if (room) {
-                // Remove participant from room
-                room.participants = room.participants.filter(id => id !== socket.id);
-                
-                // Notify other participant
-                socket.to(socket.roomCode).emit('participant-left', { participantId: socket.id });
-                
-                // Delete room if empty
-                if (room.participants.length === 0) {
-                    rooms.delete(socket.roomCode);
-                    console.log(`Room ${socket.roomCode} deleted due to disconnect`);
-                }
-            }
-        }
-    });
-
-    // Get room info (for debugging)
-    socket.on('get-rooms', () => {
-        const roomList = Array.from(rooms.entries()).map(([code, room]) => ({
-            code,
-            participants: room.participants.length,
-            createdAt: room.createdAt
-        }));
-        socket.emit('rooms-list', roomList);
-    });
+      // Clean up empty meetings
+      if (meetings[meetingId].participants.length === 0) {
+        delete meetings[meetingId];
+        delete gameStates[meetingId];
+      }
+    }
+  });
 });
 
-// Clean up old empty rooms every 10 minutes
-setInterval(() => {
-    const now = Date.now();
-    const roomsToDelete = [];
-    
-    rooms.forEach((room, code) => {
-        // Delete rooms older than 1 hour with no participants
-        if (room.participants.length === 0 && (now - room.createdAt) > 3600000) {
-            roomsToDelete.push(code);
-        }
-    });
-    
-    roomsToDelete.forEach(code => {
-        rooms.delete(code);
-        console.log(`Cleaned up old room: ${code}`);
-    });
-}, 600000); // Run every 10 minutes
+function revealAnswers(meetingId) {
+  const gameState = gameStates[meetingId];
+  const currentQuestion = gameState.currentQuestion;
+
+  // Get the correct answer for the current question
+  const correctAnswer = triviaQuestions[currentQuestion].correct;
+
+  // Update scores based on answers
+  Object.entries(gameState.answers).forEach(([participantId, answer]) => {
+    if (answer === correctAnswer) {
+      gameState.scores[participantId] = (gameState.scores[participantId] || 0) + 1;
+    }
+  });
+
+  // Emit the updated scores and answers to all participants
+  io.to(meetingId).emit('reveal-answers', {
+    answers: gameState.answers,
+    scores: gameState.scores
+  });
+}
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`Signaling server running on port ${PORT}`);
-    console.log(`Open http://localhost:${PORT} to access the application`);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-    console.log('SIGTERM received, shutting down gracefully');
-    server.close(() => {
-        console.log('Server closed');
-        process.exit(0);
-    });
-});
-
-process.on('SIGINT', () => {
-    console.log('SIGINT received, shutting down gracefully');
-    server.close(() => {
-        console.log('Server closed');
-        process.exit(0);
-    });
+  console.log(`Server running on port ${PORT}`);
 });
