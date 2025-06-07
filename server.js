@@ -2,7 +2,7 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
-const fetch = require('node-fetch'); // Add node-fetch for server-side API calls
+// global.fetch = require('node-fetch').default; // No longer needed as client sends questions
 
 const app = express();
 const server = http.createServer(app);
@@ -16,46 +16,6 @@ const io = socketIo(server, {
 // Add startup log
 console.log('Server starting up...');
 
-// Helper function to decode Base64 strings
-function decodeBase64(str) {
-    return decodeURIComponent(Buffer.from(str, 'base64').toString('binary').split('').map(function (c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-    }).join(''));
-}
-
-// Function to fetch trivia questions from Open Trivia DB for the server
-async function fetchTriviaQuestionsServer() {
-    try {
-        const response = await fetch('https://opentdb.com/api.php?amount=5&encode=base64');
-        const data = await response.json();
-
-        if (data.response_code === 0) {
-            const questions = data.results.map(q => {
-                const options = [...q.incorrect_answers.map(decodeBase64), decodeBase64(q.correct_answer)];
-                // Shuffle options (optional on server, but good for consistency)
-                for (let i = options.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [options[i], options[j]] = [options[j], options[i]];
-                }
-                const correctIndex = options.indexOf(decodeBase64(q.correct_answer));
-                return {
-                    question: decodeBase64(q.question),
-                    options: options,
-                    correct: correctIndex
-                };
-            });
-            console.log('Fetched trivia questions on server:', questions);
-            return questions;
-        } else {
-            console.error('Error fetching trivia questions on server, response code:', data.response_code);
-            return null;
-        }
-    } catch (error) {
-        console.error('Error fetching trivia questions on server:', error);
-        return null;
-    }
-}
-
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -68,7 +28,7 @@ io.on('connection', (socket) => {
 
   // Join a meeting room
   socket.on('join-meeting', (meetingId) => {
-    console.log(`User ${socket.id} joining meeting ${meetingId}`);
+    console.log(`Server: User ${socket.id} joining meeting ${meetingId}.`);
 
     // Leave any previous room
     const previousRooms = Array.from(socket.rooms).filter(room => room !== socket.id);
@@ -137,12 +97,15 @@ io.on('connection', (socket) => {
   });
 
   // Game events
-  socket.on('start-game', async () => {
+  socket.on('start-game', (data) => { // Accept data argument from client
+    console.log(`Server: Received start-game event from ${socket.id}.`);
     const meetingId = socket.meetingId;
-    if (meetingId && meetings[meetingId]) {
-      const fetchedQuestions = await fetchTriviaQuestionsServer();
-      if (fetchedQuestions) {
-        gameStates[meetingId].triviaQuestions = fetchedQuestions;
+    console.log(`Server: Start-game triggered for meetingId: ${meetingId}.`);
+
+    if (meetingId && meetings[meetingId] && gameStates[meetingId]) {
+        console.log(`Server: Found valid meeting and game state for meetingId: ${meetingId}.`);
+        // Use trivia questions sent from client
+        gameStates[meetingId].triviaQuestions = data.triviaQuestions;
         gameStates[meetingId].gameActive = true;
         gameStates[meetingId].currentQuestion = 0;
         gameStates[meetingId].answers = {};
@@ -152,13 +115,14 @@ io.on('connection', (socket) => {
           gameStates[meetingId].scores[participantId] = 0;
         });
 
+        console.log(`Server: Emitting game-started event to meeting ${meetingId}.`);
         io.to(meetingId).emit('game-started', {
           currentQuestion: 0,
-          scores: gameStates[meetingId].scores
+          scores: gameStates[meetingId].scores,
+          triviaQuestions: gameStates[meetingId].triviaQuestions
         });
-      } else {
-        console.error('Failed to fetch trivia questions for meeting:', meetingId);
-      }
+    } else {
+        console.error('Failed to start game: Meeting or game state not found or invalid.', { meetingId, hasMeeting: !!meetings[meetingId], hasGameState: !!gameStates[meetingId] });
     }
   });
 
@@ -277,7 +241,7 @@ function revealAnswers(meetingId) {
     console.log('7. Current question before check:', currentQuestion);
 
     // Check if this was the last question
-    if (currentQuestion >= 4) {  // Changed from 5 to 4 since we're 0-based
+    if (currentQuestion >= 5) {  // Changed from 5 to 4 since we're 0-based
         console.log('8. Last question completed, ending game');
         gameState.gameActive = false;
         console.log('9. Emitting game-over event');

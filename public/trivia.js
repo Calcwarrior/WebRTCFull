@@ -16,6 +16,7 @@ socket.on('game-started', (data) => {
     gameActive = true;
     currentQuestion = data.currentQuestion;
     scores = data.scores;
+    triviaQuestions = data.triviaQuestions; // Update client's triviaQuestions with data from server
     displayQuestion();
     updateScores();
 });
@@ -128,6 +129,9 @@ function showStartGameButton() {
 }
 
 async function startGame() {
+    // Clear previous game content
+    triviaGameContent.innerHTML = '';
+
     // Reset game state
     currentQuestion = 0;
     gameActive = false;
@@ -143,13 +147,21 @@ async function startGame() {
     
     const fetched = await fetchTriviaQuestions();
     if (fetched) {
-        // Emit start game event only if questions are fetched successfully
-        socket.emit('start-game');
+        console.log('Client: Emitting start-game event with questions.');
+        // Emit start game event along with fetched questions
+        socket.emit('start-game', { triviaQuestions: triviaQuestions });
     }
 }
 
 function displayQuestion() {
+    console.log("Displaying question:", currentQuestion);
+    console.log("Trivia questions array:", triviaQuestions);
+
     const question = triviaQuestions[currentQuestion];
+    if (!question) {
+        console.error("Error: Question not found at index", currentQuestion, "in triviaQuestions array.");
+        return; // Prevent further errors if question is undefined
+    }
     questionNum.textContent = currentQuestion + 1;
 
     triviaGameContent.innerHTML = `
@@ -197,6 +209,7 @@ function startTimer() {
 }
 
 function showResults(answers) {
+    console.log("Calling displayQuestion() with currentQuestion:", currentQuestion, "and triviaQuestions length:", triviaQuestions.length);
     const question = triviaQuestions[currentQuestion];
     const options = document.querySelectorAll('.option');
 
