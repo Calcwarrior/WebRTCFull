@@ -48,8 +48,21 @@ function showTriviaGame() {
 }
 
 function showGameSelection() {
-    hideSidebars();
-    gameSidebar.classList.add('active');
+    // Reset game state
+    currentQuestion = 0;
+    gameActive = false;
+    selectedAnswer = null;
+    timeLeft = 5;
+    scores = {};
+    
+    // Update UI
+    document.getElementById('yourScore').textContent = '0';
+    document.getElementById('opponentScore').textContent = '0';
+    document.getElementById('questionNum').textContent = '1';
+    
+    // Show game selection screen
+    document.getElementById('triviaGameSidebar').classList.remove('active');
+    document.getElementById('gameSidebar').classList.add('active');
 }
 
 function showStartGameButton() {
