@@ -377,6 +377,26 @@
                 width: 100%;
             }
         }
+
+        #gameSidebar .next-btn {
+            width: 100%;
+            margin-top: 0;
+            background: rgba(255, 255, 255, 0.95);
+            color: #667eea;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        #gameSidebar .next-btn:hover {
+            transform: translateY(-2px);
+            background: white;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
     </style>
 </head>
 <body>
@@ -419,14 +439,7 @@
 
                 <div class="sidebar" id="gameSidebar">
                     <h3>Game Selection</h3>
-                    <div class="game-widget" id="gameWidget">
-                        <div class="game-header">
-                            <h4>Select a Game</h4>
-                        </div>
-                        <div id="gameSelectionContent">
-                            <button class="next-btn" onclick="showTriviaGame()">Trivia Game</button>
-                        </div>
-                    </div>
+                    <button class="next-btn" onclick="showTriviaGame()">Trivia Game</button>
                 </div>
 
                 <div class="sidebar" id="triviaGameSidebar">
