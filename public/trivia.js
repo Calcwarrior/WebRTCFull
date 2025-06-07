@@ -245,7 +245,7 @@ function showResults(answers) {
 
     // Show next question button after 3 seconds
     setTimeout(() => {
-        if (currentQuestion < 4) {
+        if (currentQuestion < triviaQuestions.length - 1) {
             triviaGameContent.innerHTML += `
                 <div style="text-align: center; margin-top: 20px;">
                     <button class="next-btn" onclick="nextQuestion()">Next Question</button>

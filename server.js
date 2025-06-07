@@ -163,7 +163,7 @@ io.on('connection', (socket) => {
                 scores: gameStates[meetingId].scores
             });
             console.log(gameStates[meetingId].currentQuestion);
-            if (gameStates[meetingId].currentQuestion >= 4) {
+            if (gameStates[meetingId].currentQuestion >= gameStates[meetingId].triviaQuestions.length) {
                 console.log('8. Game over condition met');
                 gameStates[meetingId].gameActive = false;
                 console.log('9. Game state deactivated');
@@ -305,7 +305,7 @@ function revealAnswers(meetingId) {
     console.log('7. Current question before check:', currentQuestion);
 
     // Check if this was the last question
-    if (currentQuestion >= 5) {  // Changed from 5 to 4 since we're 0-based
+    if (currentQuestion >= gameState.triviaQuestions.length - 1) {
         console.log('8. Last question completed, ending game');
         gameState.gameActive = false;
         console.log('9. Emitting game-over event');
