@@ -29,8 +29,8 @@
             border-radius: 15px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
             overflow: hidden;
-            width: 90%;
-            max-width: 1200px;
+            width: 95%;
+            max-width: 1600px;
             min-height: 80vh;
         }.join-screen {
             padding: 60px;
@@ -178,7 +178,7 @@
             transform: translateY(-3px);
             box-shadow: 0 8px 25px rgba(255, 82, 82, 0.4);
         }.sidebar {
-            width: 480px;
+            width: 600px;
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -225,9 +225,12 @@
             gap: 25px;
             font-weight: 600;
             color: #333;
+            align-items: center;
+            justify-content: center;
         }.scores span {
             color: #333;
             font-size: 0.9em;
+            white-space: nowrap;
         }.question {
             background: linear-gradient(135deg, #f8f9ff 0%, #e8f2ff 100%);
             padding: 25px;
@@ -304,64 +307,105 @@
             padding-right: 15px;
         }.game-over {
             text-align: center;
-            padding: 40px;
+            padding: 30px 10px;
             background: linear-gradient(135deg, #f8f9ff 0%, #e8f2ff 100%);
             border-radius: 20px;
-            margin-top: 20px;
+            margin: 20px 0;
             box-shadow: 0 10px 30px rgba(102, 126, 234, 0.1);
             border: 1px solid rgba(102, 126, 234, 0.1);
-        }.game-over.win {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 300px;
+        }
+
+        .game-over.win {
             background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
             border-color: rgba(40, 167, 69, 0.2);
-        }.game-over.lose {
+        }
+
+        .game-over.lose {
             background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
             border-color: rgba(220, 53, 69, 0.2);
-        }.game-over.tie {
+        }
+
+        .game-over.tie {
             background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
             border-color: rgba(13, 110, 253, 0.2);
-        }.result-header {
-            margin-bottom: 30px;
-        }.result-header h3 {
+        }
+
+        .result-header {
+            margin-bottom: 25px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .result-header h3 {
             color: #333;
-            margin-bottom: 15px;
-            font-size: 2em;
+            margin-bottom: 10px;
+            font-size: 1.8em;
             font-weight: 700;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-        }.result-emoji {
-            font-size: 4em;
-            margin: 10px 0;
+            text-align: center;
+        }
+
+        .result-emoji {
+            font-size: 3em;
+            margin: 10px 0 20px 0;
             animation: bounce 1s ease infinite;
-        }.final-scores {
+        }
+
+        .final-scores {
             display: flex;
+            flex-direction: row;
             justify-content: center;
             align-items: center;
-            gap: 30px;
-            margin: 30px 0;
-        }.score-card {
+            gap: 20px;
+            margin: 25px 0;
+        }
+
+        .score-card {
             background: white;
-            padding: 20px 40px;
+            padding: 20px 25px;
             border-radius: 15px;
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-            min-width: 150px;
-        }.score-label {
+            min-width: 120px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .score-label {
             color: #666;
-            font-size: 0.9em;
-            margin-bottom: 10px;
-        }.score-value {
-            font-size: 2.5em;
+            font-size: 0.85em;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .score-value {
+            font-size: 2.2em;
             font-weight: 700;
             color: #333;
-        }.score-divider {
+            line-height: 1;
+        }
+
+        .score-divider {
             color: #666;
             font-weight: 600;
-            font-size: 1.2em;
-        }.game-over-actions {
+            font-size: 1.5em;
+            align-self: center;
+            flex-shrink: 0;
+        }
+
+        .game-over-actions {
             display: flex;
-            gap: 20px;
+            gap: 15px;
             justify-content: center;
-            margin-top: 30px;
+            margin-top: 25px;
+            flex-wrap: wrap;
         }.conversation-prompts {
             background: rgba(255, 255, 255, 0.95);
             border-radius: 15px;
