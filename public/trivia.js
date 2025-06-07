@@ -54,11 +54,30 @@ function decodeBase64(str) {
 
 // Function to fetch trivia questions from Open Trivia DB
 async function fetchTriviaQuestions() {
+    const numQuestions = document.getElementById('numQuestions').value;
+    const difficulty = document.querySelector('input[name="difficulty"]:checked').value;
+    
+    let apiUrl = `https://opentdb.com/api.php?amount=${numQuestions}&encode=base64`;
+    if (difficulty !== 'any') {
+        apiUrl += `&difficulty=${difficulty}`;
+    }
+
+    console.log('Fetching trivia questions with settings:', {
+        numQuestions,
+        difficulty,
+        apiUrl
+    });
+
     try {
-        const response = await fetch('https://opentdb.com/api.php?amount=5&encode=base64');
+        const response = await fetch(apiUrl);
         const data = await response.json();
 
         if (data.response_code === 0) {
+            console.log('Successfully fetched questions. First question:', {
+                question: decodeBase64(data.results[0].question),
+                difficulty: decodeBase64(data.results[0].difficulty)
+            });
+            
             triviaQuestions = data.results.map(q => {
                 const options = [...q.incorrect_answers.map(decodeBase64), decodeBase64(q.correct_answer)];
                 // Shuffle options to ensure correct answer isn't always in the same spot
@@ -70,7 +89,8 @@ async function fetchTriviaQuestions() {
                 return {
                     question: decodeBase64(q.question),
                     options: options,
-                    correct: correctIndex
+                    correct: correctIndex,
+                    difficulty: decodeBase64(q.difficulty) // Store the difficulty for verification
                 };
             });
             console.log('Fetched trivia questions:', triviaQuestions);
@@ -91,10 +111,7 @@ async function fetchTriviaQuestions() {
 // Game functions
 function showTriviaGame() {
     hideSidebars();
-    triviaGameSidebar.classList.add('active');
-    if (!gameActive) {
-        showStartGameButton();
-    }
+    gameSettingsSidebar.classList.add('active');
 }
 
 function showGameSelection() {
@@ -116,8 +133,7 @@ function showGameSelection() {
 }
 
 function showStartGameButton() {
-    // Hide the timer on start screen
-    document.getElementById('timer').style.display = 'none';
+    // Timer is hidden by default via CSS; no need to hide here
     
     triviaGameContent.innerHTML = `
         <div style="text-align: center; padding: 40px;">
@@ -143,13 +159,19 @@ async function startGame() {
     document.getElementById('yourScore').textContent = '0';
     document.getElementById('opponentScore').textContent = '0';
     document.getElementById('questionNum').textContent = '1';
+    document.getElementById('totalQuestions').textContent = document.getElementById('numQuestions').value;
     document.getElementById('timer').style.display = 'block'; // Show the timer
-    
+
+    // Fetch questions based on settings
     const fetched = await fetchTriviaQuestions();
     if (fetched) {
         console.log('Client: Emitting start-game event with questions.');
         // Emit start game event along with fetched questions
         socket.emit('start-game', { triviaQuestions: triviaQuestions });
+        
+        // Show the trivia game sidebar after starting the game
+        hideSidebars();
+        triviaGameSidebar.classList.add('active');
     }
 }
 
@@ -157,10 +179,18 @@ function displayQuestion() {
     console.log("Displaying question:", currentQuestion);
     console.log("Trivia questions array:", triviaQuestions);
 
+    // Check if we've reached the end of the questions
+    if (currentQuestion >= triviaQuestions.length) {
+        console.log("Game complete - showing game over screen");
+        showGameOver();
+        return;
+    }
+
     const question = triviaQuestions[currentQuestion];
     if (!question) {
         console.error("Error: Question not found at index", currentQuestion, "in triviaQuestions array.");
-        return; // Prevent further errors if question is undefined
+        showGameOver(); // Show game over screen if we hit an error
+        return;
     }
     questionNum.textContent = currentQuestion + 1;
 
@@ -273,42 +303,28 @@ function updateScores() {
 }
 
 function showGameOver() {
-    console.log('showGameOver function called');
-    const mySocketId = socket.id;
-    const myScore = scores[mySocketId] || 0;
-    let opponentScore = 0;
-    console.log('we are doing this');
-    console.log('Current scores:', scores);
-    console.log('My socket ID:', mySocketId);
-    console.log('My score:', myScore);
+    gameActive = false;
+    clearInterval(timerInterval);
+    
+    // Calculate final scores
+    const yourScore = scores[socket.id] || 0;
+    const opponentScore = Object.entries(scores)
+        .filter(([id]) => id !== socket.id)
+        .reduce((sum, [_, score]) => sum + score, 0);
 
-    // Hide the timer
-    document.getElementById('timer').style.display = 'none';
+    // Determine game result
+    let resultClass = 'tie';
+    let resultEmoji = '🤝';
+    let resultText = "It's a tie!";
 
-    Object.keys(scores).forEach(socketId => {
-        if (socketId !== mySocketId) {
-            opponentScore = scores[socketId] || 0;
-            console.log('Opponent socket ID:', socketId);
-            console.log('Opponent score:', opponentScore);
-        }
-    });
-
-    let resultText = '';
-    let resultEmoji = '';
-    let resultClass = '';
-
-    if (myScore > opponentScore) {
-        resultText = 'You Win!';
-        resultEmoji = '🎉';
+    if (yourScore > opponentScore) {
         resultClass = 'win';
-    } else if (myScore < opponentScore) {
-        resultText = 'You Lose!';
-        resultEmoji = '😔';
+        resultEmoji = '🎉';
+        resultText = 'You won!';
+    } else if (yourScore < opponentScore) {
         resultClass = 'lose';
-    } else {
-        resultText = "It's a Tie!";
-        resultEmoji = '🤝';
-        resultClass = 'tie';
+        resultEmoji = '😢';
+        resultText = 'You lost!';
     }
 
     triviaGameContent.innerHTML = `
@@ -320,7 +336,7 @@ function showGameOver() {
             <div class="final-scores">
                 <div class="score-card">
                     <div class="score-label">Your Score</div>
-                    <div class="score-value">${myScore}</div>
+                    <div class="score-value">${yourScore}</div>
                 </div>
                 <div class="score-divider">vs</div>
                 <div class="score-card">
@@ -329,7 +345,7 @@ function showGameOver() {
                 </div>
             </div>
             <div class="game-over-actions">
-                <button class="next-btn" onclick="startGame()">Play Again</button>
+                <button class="next-btn" onclick="showGameSettings()">Play Again</button>
             </div>
         </div>
     `;

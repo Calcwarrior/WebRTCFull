@@ -544,11 +544,32 @@
                     <button class="next-btn" onclick="showTriviaGame()">Trivia Game</button>
                 </div>
 
+                <div class="sidebar" id="gameSettingsSidebar">
+                    <h3>Game Settings</h3>
+                    <div class="game-widget">
+                        <div class="input-group">
+                            <label for="numQuestions">Number of Questions (1-50):</label>
+                            <input type="number" id="numQuestions" value="5" min="1" max="50">
+                        </div>
+                        <div class="input-group" style="margin-top: 20px;">
+                            <label>Difficulty:</label>
+                            <div style="display: flex; gap: 15px; margin-top: 10px;">
+                                <label><input type="radio" name="difficulty" value="any" checked> Any</label>
+                                <label><input type="radio" name="difficulty" value="easy"> Easy</label>
+                                <label><input type="radio" name="difficulty" value="medium"> Medium</label>
+                                <label><input type="radio" name="difficulty" value="hard"> Hard</label>
+                            </div>
+                        </div>
+                        <button class="next-btn" onclick="startGame()" style="margin-top: 30px;">Start Game</button>
+                        <button class="back-btn" onclick="showGameSelection()" style="margin-top: 15px;">Back to Games</button>
+                    </div>
+                </div>
+
                 <div class="sidebar" id="triviaGameSidebar">
                     <h3>Trivia Game</h3>
                     <div class="game-widget" id="triviaGameWidget">
                         <div class="game-header">
-                            <h4>Question <span id="questionNum">1</span> of 5</h4>
+                            <h4>Question <span id="questionNum">1</span> of <span id="totalQuestions">5</span></h4>
                             <div class="scores">
                                 <span>You: <span id="yourScore">0</span></span>
                                 <span>Opponent: <span id="opponentScore">0</span></span>
@@ -622,6 +643,7 @@
         const gameSidebar = document.getElementById('gameSidebar');
         const triviaGameSidebar = document.getElementById('triviaGameSidebar');
         const conversationSidebar = document.getElementById('conversationSidebar');
+        const gameSettingsSidebar = document.getElementById('gameSettingsSidebar');
 
         // Control buttons
         const cameraBtn = document.getElementById('cameraBtn');
@@ -824,6 +846,22 @@
             gameSidebar.classList.remove('active');
             triviaGameSidebar.classList.remove('active');
             conversationSidebar.classList.remove('active');
+            gameSettingsSidebar.classList.remove('active');
+        }
+
+        function showGameSettings() {
+            hideSidebars();
+            gameSettingsSidebar.classList.add('active');
+        }
+
+        function showGameSelection() {
+            hideSidebars();
+            gameSidebar.classList.add('active');
+        }
+
+        // Update the showTriviaGame function to show settings first
+        function showTriviaGame() {
+            showGameSettings();
         }
     </script>
 </body>
