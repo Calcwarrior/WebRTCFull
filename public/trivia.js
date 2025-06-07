@@ -100,6 +100,9 @@ function showGameSelection() {
 }
 
 function showStartGameButton() {
+    // Hide the timer on start screen
+    document.getElementById('timer').style.display = 'none';
+    
     triviaGameContent.innerHTML = `
         <div style="text-align: center; padding: 40px;">
             <h4>Ready to play trivia?</h4>
@@ -121,6 +124,7 @@ function startGame() {
     document.getElementById('yourScore').textContent = '0';
     document.getElementById('opponentScore').textContent = '0';
     document.getElementById('questionNum').textContent = '1';
+    document.getElementById('timer').style.display = 'block'; // Show the timer
     
     // Emit start game event
     socket.emit('start-game');
@@ -247,6 +251,9 @@ function showGameOver() {
     console.log('My socket ID:', mySocketId);
     console.log('My score:', myScore);
 
+    // Hide the timer
+    document.getElementById('timer').style.display = 'none';
+
     Object.keys(scores).forEach(socketId => {
         if (socketId !== mySocketId) {
             opponentScore = scores[socketId] || 0;
@@ -292,7 +299,6 @@ function showGameOver() {
             </div>
             <div class="game-over-actions">
                 <button class="next-btn" onclick="startGame()">Play Again</button>
-                <button class="back-btn" onclick="showGameSelection()">Back to Games</button>
             </div>
         </div>
     `;
